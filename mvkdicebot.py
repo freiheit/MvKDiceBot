@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!.venv/bin/python3
 # MvKDiceBot: Discord bot for rolling dice for Mecha Vs Kaiju
 # Copyright (C) 2023  Eric Eisenhart
 #
@@ -36,14 +36,16 @@ intents = discord.Intents.default()
 #intents.messages = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix='?', description=description, intents=intents)
+bot = commands.AutoShardedBot(
+    command_prefix=commands.when_mentioned_or('?'),
+    description=description,
+    intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print('------')
+    logger.info(f'Logged in as {bot.user} (ID: {bot.user.id})')
 
-@bot.command()
+@bot.hybrid_command()
 async def roll(ctx, dice: str):
     """Rolls a dice in NdN format."""
     try:
@@ -97,9 +99,14 @@ def get_config():
     logger = logging.getLogger(__name__)
     logger.setLevel(log_level)
     warnings.resetwarnings()
+    logger.addHandler(logging.StreamHandler())
 
     return config, logger
 
 config, logger = get_config()
 
-bot.run(config["MAIN"].get("authtoken"))
+bot.run(
+   token=config["MAIN"].get("authtoken"),
+   reconnect=True,
+   log_level=logger.getEffectiveLevel()
+   )
