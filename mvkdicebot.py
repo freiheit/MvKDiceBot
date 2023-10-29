@@ -20,46 +20,54 @@
 import asyncio
 import discord
 import logging
-import random
 import os
+import random
+import re
 import warnings
 
 from configparser import ConfigParser
 from discord.ext import commands
 
 __version__ = "0.0.1"
-description = '''A dice rolling bot for MvK
-'''
+description = """A dice rolling bot for MvK
+"""
 
 intents = discord.Intents.default()
-#intents.members = True
-#intents.messages = True
+# intents.members = True
+# intents.messages = True
 intents.message_content = True
 
 bot = commands.AutoShardedBot(
-    command_prefix=commands.when_mentioned_or('?'),
+    command_prefix=commands.when_mentioned_or("?"),
     description=description,
-    intents=intents)
+    intents=intents,
+)
+
+config, logger = get_config()
+
 
 @bot.event
 async def on_ready():
-    logger.info(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
 
 @bot.hybrid_command()
 async def roll(ctx, dice: str):
-    """Rolls a dice in NdN format."""
+    """Rolls a pool of dice in NdN format. Example: '?roll 1d20 2d10 d8 2d6'"""
+    #    self.logger
     try:
-        rolls, limit = map(int, dice.split('d'))
+        rolls, limit = map(int, dice.split("d"))
     except Exception:
-        await ctx.send('Format has to be in NdN!')
+        await ctx.send("Format has to be in NdN!")
         return
 
-    result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
+    result = ", ".join(str(random.randint(1, limit)) for r in range(rolls))
     await ctx.send(result)
 
 
 class ImproperlyConfigured(Exception):
     pass
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HOME_DIR = os.path.expanduser("~")
@@ -70,6 +78,7 @@ DEFAULT_CONFIG_PATHS = [
     os.path.join(BASE_DIR, "mvkdicebot.ini"),
     os.path.join("mvkdicebot.ini"),
 ]
+
 
 def get_config():
     config = ConfigParser()
@@ -103,10 +112,9 @@ def get_config():
 
     return config, logger
 
-config, logger = get_config()
 
 bot.run(
-   token=config["MAIN"].get("authtoken"),
-   reconnect=True,
-   log_level=logger.getEffectiveLevel()
-   )
+    token=config["MAIN"].get("authtoken"),
+    reconnect=True,
+    log_level=logger.getEffectiveLevel(),
+)
