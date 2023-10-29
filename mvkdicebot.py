@@ -21,6 +21,8 @@ import asyncio
 import discord
 import logging
 import random
+import os
+import warnings
 
 from configparser import ConfigParser
 from discord.ext import commands
@@ -30,8 +32,35 @@ description = '''A dice rolling bot for MvK
 '''
 
 intents = discord.Intents.default()
+#intents.members = True
+#intents.messages = True
+intents.message_content = True
 
 bot = commands.Bot(command_prefix='?', description=description, intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
+
+@bot.command()
+async def roll(ctx, dice: str):
+    """Rolls a dice in NdN format."""
+    try:
+        rolls, limit = map(int, dice.split('d'))
+    except Exception:
+        await ctx.send('Format has to be in NdN!')
+        return
+
+    result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
+    await ctx.send(result)
+
+
+class ImproperlyConfigured(Exception):
+    pass
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HOME_DIR = os.path.expanduser("~")
 
 DEFAULT_CONFIG_PATHS = [
     os.path.join(HOME_DIR, ".mvkdicebot.ini"),
@@ -44,20 +73,12 @@ def get_config():
     config = ConfigParser()
     config_paths = []
 
-    if args.config:
-        config_paths = [args.config]
+    for path in DEFAULT_CONFIG_PATHS:
+        if os.path.isfile(path):
+            config_paths.append(path)
+            break
     else:
-        for path in DEFAULT_CONFIG_PATHS:
-            if os.path.isfile(path):
-                config_paths.append(path)
-                break
-        else:
-            raise ImproperlyConfigured("No configuration file found.")
-
-        for path in DEFAULT_AUTH_CONFIG_PATHS:
-            if os.path.isfile(path):
-                config_paths.append(path)
-                break
+        raise ImproperlyConfigured("No configuration file found.")
 
     config.read(config_paths)
 
@@ -81,3 +102,4 @@ def get_config():
 
 config, logger = get_config()
 
+bot.run(config["MAIN"].get("authtoken"))
