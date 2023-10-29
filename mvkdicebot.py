@@ -43,18 +43,15 @@ bot = commands.AutoShardedBot(
     intents=intents,
 )
 
-config, logger = get_config()
-
-
 @bot.event
 async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
 @bot.hybrid_command()
-async def roll(ctx, dice: str):
+async def roll(ctx, *, dice: str):
     """Rolls a pool of dice in NdN format. Example: '?roll 1d20 2d10 d8 2d6'"""
-    #    self.logger
+    logger.debug(f"roll: {dice}")
     try:
         rolls, limit = map(int, dice.split("d"))
     except Exception:
@@ -112,9 +109,10 @@ def get_config():
 
     return config, logger
 
+config, logger = get_config()
 
 bot.run(
     token=config["MAIN"].get("authtoken"),
     reconnect=True,
-    log_level=logger.getEffectiveLevel(),
+    log_level=logging.WARNING,
 )
