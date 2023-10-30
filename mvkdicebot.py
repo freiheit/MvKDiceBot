@@ -95,13 +95,21 @@ async def roll(ctx, *, dicestr: str):
     flatdicerolls.sort(reverse=True)
 
     if len(dicerolls) > 0:
-        answer = "Dice: "
+        answer = "**Dice:** "
+
         for size in dicerolls:
-           answer += f"**{len(dicerolls[size])}d{size}**{ str(dicerolls[size])} "
+           answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
         answer += "\n"
+
         action_dice = flatdicerolls[:2]
         action_total = sum(action_dice)
-        answer += f"Action Total: {str(action_total)} {str(action_dice)}\n"
+        answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
+
+        impact = sum(1 for p in flatdicerolls if p >=4)
+        if impact < 1:
+            impact = 1
+        answer += f"**Impact:** {impact}"
+
         await ctx.send(answer)
     else:
         await ctx.send(f"No valid NdNs found in '{dicestr}'")
