@@ -110,9 +110,9 @@ async def roll(ctx, *, dicestr: str):
             impact = 1
         answer += f"**Impact:** {impact}"
 
-        await ctx.send(answer)
+        await ctx.reply(answer)
     else:
-        await ctx.send(f"No valid NdNs found in '{dicestr}'")
+        await ctx.reply(f"No valid NdNs found in '{dicestr}'")
                 
 #    try:
 #        rolls, limit = map(int, dicestr.split("d"))
