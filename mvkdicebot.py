@@ -27,7 +27,7 @@ from configparser import ConfigParser
 import discord
 from discord.ext import commands
 
-__version__ = "0.0.1"
+__version__ = "1.0.0"
 DESCRIPTION = """A dice rolling bot for MvK
 """
 
