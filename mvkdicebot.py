@@ -16,45 +16,49 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 # https://github.com/freiheit/MvKDiceBot
+"""MvKDiceBot: Discord bot for rolling dice for Mecha Vs Kaiju"""
 
-import asyncio
-import discord
 import logging
 import os
 import random
 import re
 import warnings
-
 from configparser import ConfigParser
+import discord
 from discord.ext import commands
 
 __version__ = "0.0.1"
-description = """A dice rolling bot for MvK
+DESCRIPTION = """A dice rolling bot for MvK
 """
 
 intents = discord.Intents.default()
 # intents.members = True
 # intents.messages = True
-intents.message_content = True
+intents.message_content = True  # pylint: disable=assigning-non-slot
 
 bot = commands.AutoShardedBot(
     command_prefix=commands.when_mentioned_or("?"),
-    description=description,
+    description=DESCRIPTION,
     intents=intents,
 )
 
 
 @bot.event
 async def on_ready():
-    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    """Log when we start up"""
+    # pylint: disable=logging-fstring-interpolation
+    logger.warning(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
-@bot.hybrid_command()
+@bot.hybrid_command()  # pylint: disable=no-member
 async def roll(ctx, *, dicestr: str):
     """Rolls a pool of dice in NdN format.
     Example: '?roll 1d20 2d10 d8 2d6'
     Ignores anything extra it doesn't understand.
     """
+    # pylint: disable=logging-fstring-interpolation
+    # pylint: disable=consider-using-dict-items
+
     logger.debug(f"roll: {dicestr}")
 
     # types of dice we're looking for:
@@ -70,9 +74,9 @@ async def roll(ctx, *, dicestr: str):
     dicerolls = {}
     flatdicerolls = []
 
-    patternNdN = re.compile(r"([0-9]*)d([0-9]+)")
+    pattern_ndn = re.compile(r"([0-9]*)d([0-9]+)")
 
-    for count, size in re.findall(patternNdN, dicestr):
+    for count, size in re.findall(pattern_ndn, dicestr):
         logger.debug(f"roll: count={count} size={size}")
         size = int(size)
         if len(count) >= 1:
@@ -90,6 +94,7 @@ async def roll(ctx, *, dicestr: str):
         if dicecounts[size] > 0:
             # logger.debug(f"rolling: d{size}={dicecounts[size]}")
             dicerolls[size] = []
+            # pylint: disable=unused-variable
             for i in range(0, dicecounts[size]):
                 result = random.randint(1, size)
                 dicerolls[size].append(result)
@@ -109,9 +114,7 @@ async def roll(ctx, *, dicestr: str):
         answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
 
         impact = sum(1 for p in flatdicerolls if p >= 4)
-        if impact < 1:
-            impact = 1
-        answer += f"**Impact:** {impact}"
+        impact = max(impact, 1)
 
         await ctx.reply(answer)
     else:
@@ -129,6 +132,9 @@ async def roll(ctx, *, dicestr: str):
 
 
 class ImproperlyConfigured(Exception):
+    """Boring Exception Class"""
+
+    # pylint: disable=unnecessary-pass
     pass
 
 
@@ -144,6 +150,8 @@ DEFAULT_CONFIG_PATHS = [
 
 
 def get_config():
+    """Find and parse our config"""
+    # pylint: disable=redefined-outer-name
     config = ConfigParser()
     config_paths = []
 
