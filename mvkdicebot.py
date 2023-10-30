@@ -49,17 +49,71 @@ async def on_ready():
 
 
 @bot.hybrid_command()
-async def roll(ctx, *, dice: str):
-    """Rolls a pool of dice in NdN format. Example: '?roll 1d20 2d10 d8 2d6'"""
-    logger.debug(f"roll: {dice}")
-    try:
-        rolls, limit = map(int, dice.split("d"))
-    except Exception:
-        await ctx.send("Format has to be in NdN!")
-        return
+async def roll(ctx, *, dicestr: str):
+    """Rolls a pool of dice in NdN format.
+    Example: '?roll 1d20 2d10 d8 2d6'
+    Ignores anything extra it doesn't understand.
+    """
+    logger.debug(f"roll: {dicestr}")
 
-    result = ", ".join(str(random.randint(1, limit)) for r in range(rolls))
-    await ctx.send(result)
+    # types of dice we're looking for:
+    dicecounts = { 20:0, 12:0,
+      10: 0,
+      8: 0,
+      6: 0,
+      4: 0,
+    }
+    
+    dicerolls = {}
+    flatdicerolls = []
+
+    patternNdN = re.compile(r'([0-9]*)d([0-9]+)')
+    
+    for (count, size) in re.findall(patternNdN, dicestr):
+        logger.debug(f"roll: count={count} size={size}")
+        size=int(size)
+        if len(count) >= 1:
+            count=int(count)
+        elif len(count) < 1 or int(count) < 1:
+            count=1
+        if size in dicecounts:
+            dicecounts[size] += count
+        else:
+            await ctx.send(f"Invalid dice size d{size}")
+
+    flatdicerolls = []
+
+    for size in dicecounts:
+        if dicecounts[size] > 0:
+            # logger.debug(f"rolling: d{size}={dicecounts[size]}")   
+            dicerolls[size] = []
+            for i in range(0, dicecounts[size]):
+                result = (random.randint(1,size))
+                dicerolls[size].append(result)
+                flatdicerolls.append(result)
+
+    flatdicerolls.sort(reverse=True)
+
+    if len(dicerolls) > 0:
+        answer = "Dice: "
+        for size in dicerolls:
+           answer += f"**{len(dicerolls[size])}d{size}**{ str(dicerolls[size])} "
+        answer += "\n"
+        action_dice = flatdicerolls[:2]
+        action_total = sum(action_dice)
+        answer += f"Action Total: {str(action_total)} {str(action_dice)}\n"
+        await ctx.send(answer)
+    else:
+        await ctx.send(f"No valid NdNs found in '{dicestr}'")
+                
+#    try:
+#        rolls, limit = map(int, dicestr.split("d"))
+#    except Exception:
+#        await ctx.send("Format has to be in NdN!")
+#        return
+
+#    result = ", ".join(str(random.randint(1, limit)) for r in range(rolls))
+#    await ctx.send(result)
 
 
 class ImproperlyConfigured(Exception):
