@@ -1,5 +1,5 @@
-[![CodeQL](https://github.com/freiheit/MvKDiceBot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/codeql-analysis.yml)
-[![Dependency Review](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependency-review.yml)
+[![CodeQL](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql)
+[![Pylint](https://github.com/freiheit/MvKDiceBot/actions/workflows/pylint.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/pylint.yml)
 
 # MvKDiceBot
 Dice bot for MvK ruleset...
