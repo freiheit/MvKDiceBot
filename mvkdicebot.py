@@ -43,6 +43,7 @@ bot = commands.AutoShardedBot(
     intents=intents,
 )
 
+
 @bot.event
 async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
@@ -57,25 +58,27 @@ async def roll(ctx, *, dicestr: str):
     logger.debug(f"roll: {dicestr}")
 
     # types of dice we're looking for:
-    dicecounts = { 20:0, 12:0,
-      10: 0,
-      8: 0,
-      6: 0,
-      4: 0,
+    dicecounts = {
+        20: 0,
+        12: 0,
+        10: 0,
+        8: 0,
+        6: 0,
+        4: 0,
     }
-    
+
     dicerolls = {}
     flatdicerolls = []
 
-    patternNdN = re.compile(r'([0-9]*)d([0-9]+)')
-    
-    for (count, size) in re.findall(patternNdN, dicestr):
+    patternNdN = re.compile(r"([0-9]*)d([0-9]+)")
+
+    for count, size in re.findall(patternNdN, dicestr):
         logger.debug(f"roll: count={count} size={size}")
-        size=int(size)
+        size = int(size)
         if len(count) >= 1:
-            count=int(count)
+            count = int(count)
         elif len(count) < 1 or int(count) < 1:
-            count=1
+            count = 1
         if size in dicecounts:
             dicecounts[size] += count
         else:
@@ -85,10 +88,10 @@ async def roll(ctx, *, dicestr: str):
 
     for size in dicecounts:
         if dicecounts[size] > 0:
-            # logger.debug(f"rolling: d{size}={dicecounts[size]}")   
+            # logger.debug(f"rolling: d{size}={dicecounts[size]}")
             dicerolls[size] = []
             for i in range(0, dicecounts[size]):
-                result = (random.randint(1,size))
+                result = random.randint(1, size)
                 dicerolls[size].append(result)
                 flatdicerolls.append(result)
 
@@ -98,14 +101,14 @@ async def roll(ctx, *, dicestr: str):
         answer = "**Dice:** "
 
         for size in dicerolls:
-           answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+            answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
         answer += "\n"
 
         action_dice = flatdicerolls[:2]
         action_total = sum(action_dice)
         answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
 
-        impact = sum(1 for p in flatdicerolls if p >=4)
+        impact = sum(1 for p in flatdicerolls if p >= 4)
         if impact < 1:
             impact = 1
         answer += f"**Impact:** {impact}"
@@ -113,7 +116,8 @@ async def roll(ctx, *, dicestr: str):
         await ctx.reply(answer)
     else:
         await ctx.reply(f"No valid NdNs found in '{dicestr}'")
-                
+
+
 #    try:
 #        rolls, limit = map(int, dicestr.split("d"))
 #    except Exception:
@@ -170,6 +174,7 @@ def get_config():
     logger.addHandler(logging.StreamHandler())
 
     return config, logger
+
 
 config, logger = get_config()
 
