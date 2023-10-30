@@ -1,3 +1,6 @@
+[![CodeQL](https://github.com/freiheit/MvKDiceBot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/codeql-analysis.yml)
+[![Dependency Review](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependency-review.yml)
+
 # MvKDiceBot
 Dice bot for MvK ruleset...
 
