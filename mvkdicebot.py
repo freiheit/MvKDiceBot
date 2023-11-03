@@ -115,6 +115,7 @@ async def roll(ctx, *, dicestr: str):
 
         impact = sum(1 for p in flatdicerolls if p >= 4)
         impact = max(impact, 1)
+        answer += f"**Impact:** {impact}"
 
         await ctx.reply(answer)
     else:
