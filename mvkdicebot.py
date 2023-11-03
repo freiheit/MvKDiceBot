@@ -74,7 +74,7 @@ async def roll(ctx, *, dicestr: str):
     dicerolls = {}
     flatdicerolls = []
 
-    pattern_ndn = re.compile(r"([0-9]*)d([0-9]+)")
+    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
 
     for count, size in re.findall(pattern_ndn, dicestr):
         logger.debug(f"roll: count={count} size={size}")
