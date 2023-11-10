@@ -1,6 +1,9 @@
 [![CodeQL](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql)
 [![Pylint](https://github.com/freiheit/MvKDiceBot/actions/workflows/pylint.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/pylint.yml)
 
+
+
+
 # MvKDiceBot
 Dice bot for MvK ruleset...
 
@@ -19,3 +22,11 @@ https://discord.com/api/oauth2/authorize?client_id=1168083075515826186&permissio
 7. Generate an invite URL:
    - Scopes: bot, applications.commands
    - Bot Permissions: Read Messages/View Channels, Send Messages, Send Messages in Threads
+
+## Tech Stack
+freiheit/MvKDiceBot is built on the following main stack:
+- <img width='25' height='25' src='https://img.stackshare.io/service/993/pUBY5pVj.png' alt='Python'/> [Python](https://www.python.org) – Languages
+- <img width='25' height='25' src='https://img.stackshare.io/service/4837/py.jpg' alt='Pylint'/> [Pylint](https://www.pylint.org/) – Code Review
+- <img width='25' height='25' src='https://img.stackshare.io/service/11563/actions.png' alt='GitHub Actions'/> [GitHub Actions](https://github.com/features/actions) – Continuous Integration
+
+Full tech stack [here](/techstack.md)
