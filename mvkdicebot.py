@@ -61,6 +61,18 @@ async def roll(ctx, *, dicestr: str):
 
     logger.debug(f"roll: {dicestr}")
 
+    cheat        = False
+    advantage    = False
+    disadvantage = False
+    
+    if re.search(  r"disadvantage", dicestr, flags=re.IGNORECASE):
+        disadvantage = True
+    elif re.search(r"advantage",    dicestr, flags=re.IGNORECASE):
+        advantage = True
+    
+    if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
+        cheat = True
+
     # types of dice we're looking for:
     dicecounts = {
         20: 0,
@@ -96,14 +108,20 @@ async def roll(ctx, *, dicestr: str):
             dicerolls[size] = []
             # pylint: disable=unused-variable
             for i in range(0, dicecounts[size]):
-                result = random.randint(1, size)
+                if cheat:
+                    result = size
+                else:
+                    result = random.randint(1, size)
                 dicerolls[size].append(result)
                 flatdicerolls.append(result)
 
     flatdicerolls.sort(reverse=True)
 
     if len(dicerolls) > 0:
-        answer = "**Dice:** "
+        if cheat:
+            answer = "# Cheating\n**Dice:** "
+        else:
+            answer = "**Dice:** "
 
         for size in dicerolls:
             answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
