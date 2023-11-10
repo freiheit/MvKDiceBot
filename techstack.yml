@@ -1,11 +1,8 @@
 repo_name: freiheit/MvKDiceBot
-report_id: c110a57b0780a6e41a40ae2feb4c551a
 repo_type: Public
-timestamp: '2023-11-10T00:06:50+00:00'
 requested_by: freiheit
 provider: github
-branch: main
-detected_tools_count: 6
+detected_tools_count: 5
 tools:
 - name: Python
   description: A clear and powerful object-oriented programming language, comparable
@@ -58,20 +55,6 @@ tools:
   category: Build, Test, Deploy
   sub_category: Code Review
   image_url: https://img.stackshare.io/service/4837/py.jpg
-  detection_source_url: requirements.txt
-  detection_source: requirements.txt
-  last_updated_by: freiheit
-  last_updated_on: 2023-10-29 21:19:35.000000000 Z
-- name: yarl
-  description: Yet another URL library
-  package_url: https://pypi.org/yarl
-  version: 1.9.2
-  license: Apache-2.0
-  open_source: true
-  hosted_saas: false
-  category: Libraries
-  sub_category: PyPI Packages
-  image_url: https://img.stackshare.io/package/20083/default_d8789f2f1b5b4e9994bef68371453a20460b4d6e.png
   detection_source_url: requirements.txt
   detection_source: requirements.txt
   last_updated_by: freiheit
