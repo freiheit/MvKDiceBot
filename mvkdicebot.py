@@ -64,6 +64,9 @@ async def roll(ctx, *, dicestr: str):
     """
     # pylint: disable=logging-fstring-interpolation
     # pylint: disable=consider-using-dict-items
+    # pylint: disable=too-many-locals 
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-statements
 
     logger.debug(f"roll: {dicestr}")
 
