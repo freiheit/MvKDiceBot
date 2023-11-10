@@ -59,7 +59,7 @@ async def roll(ctx, *, dicestr: str):
     Add 'disadvantage' to discard highest d20.
     Example: '?roll 2d20 2d10 advantage'
     Example: '?roll 2d20 2d10 disadvantage'
-    
+
     Ignores anything extra it doesn't understand.
     """
     # pylint: disable=logging-fstring-interpolation
@@ -67,15 +67,15 @@ async def roll(ctx, *, dicestr: str):
 
     logger.debug(f"roll: {dicestr}")
 
-    cheat        = False
-    advantage    = False
+    cheat = False
+    advantage = False
     disadvantage = False
-    
-    if re.search(  r"disadvantage", dicestr, flags=re.IGNORECASE):
+
+    if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
         disadvantage = True
-    elif re.search(r"advantage",    dicestr, flags=re.IGNORECASE):
+    elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
         advantage = True
-    
+
     if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
         cheat = True
 
@@ -145,7 +145,6 @@ async def roll(ctx, *, dicestr: str):
         for size in dicerolls:
             answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
         answer += "\n"
-        
 
         action_dice = flatdicerolls[:2]
         action_total = sum(action_dice)
