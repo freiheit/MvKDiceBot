@@ -54,6 +54,12 @@ async def on_ready():
 async def roll(ctx, *, dicestr: str):
     """Rolls a pool of dice in NdN format.
     Example: '?roll 1d20 2d10 d8 2d6'
+
+    Add 'advantage' to discard lowest d20.
+    Add 'disadvantage' to discard highest d20.
+    Example: '?roll 2d20 2d10 advantage'
+    Example: '?roll 2d20 2d10 disadvantage'
+    
     Ignores anything extra it doesn't understand.
     """
     # pylint: disable=logging-fstring-interpolation
@@ -118,14 +124,28 @@ async def roll(ctx, *, dicestr: str):
     flatdicerolls.sort(reverse=True)
 
     if len(dicerolls) > 0:
+        answer = ""
         if cheat:
-            answer = "# Cheating\n**Dice:** "
-        else:
-            answer = "**Dice:** "
+            answer += "# Cheating\n"
 
+        if advantage or disadvantage:
+            answer += "**Original Dice:** "
+            for size in dicerolls:
+                answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+            answer += "\n"
+
+        if advantage:
+            dicerolls[20].sort()
+            dicerolls[20].pop(0)
+        if disadvantage:
+            dicerolls[20].sort(reverse=True)
+            dicerolls[20].pop(0)
+
+        answer += "**Dice:** "
         for size in dicerolls:
             answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
         answer += "\n"
+        
 
         action_dice = flatdicerolls[:2]
         action_total = sum(action_dice)
