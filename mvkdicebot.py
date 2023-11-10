@@ -132,17 +132,22 @@ async def roll(ctx, *, dicestr: str):
             answer += "# Cheating\n"
 
         if advantage or disadvantage:
-            answer += "**Original Dice:** "
-            for size in dicerolls:
-                answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
-            answer += "\n"
-
-        if advantage:
-            dicerolls[20].sort()
-            dicerolls[20].pop(0)
-        if disadvantage:
-            dicerolls[20].sort(reverse=True)
-            dicerolls[20].pop(0)
+            if 20 in dicerolls and len(dicerolls[20]) >= 2:
+                answer += "**Original d20s:** "
+                answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} "
+                answer += "\n"
+                if advantage:
+                    answer += "Applying _advantage_...\n\n"
+                    dicerolls[20].sort()
+                if disadvantage:
+                    answer += "Applying _disadvantage_...\n\n"
+                    dicerolls[20].sort(reverse=True)
+                dicerolls[20].pop(0)
+            else:
+                answer += "## Advantage and Disadvantage require 2 or more d20s\n"
+                answer += "Rolling normally...\n\n"
+                advantage = False
+                disadvantage = False
 
         answer += "**Dice:** "
         for size in dicerolls:
