@@ -154,6 +154,9 @@ async def roll(ctx, *, dicestr: str):
         impact = max(impact, 1)
         answer += f"**Impact:** {impact}"
 
+        if cheat:
+            answer += "\n# Cheating"
+
         await ctx.reply(answer)
     else:
         await ctx.reply(f"No valid NdNs found in '{dicestr}'")
