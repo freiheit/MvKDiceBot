@@ -50,7 +50,7 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
-@bot.hybrid_command(aliases=['r', 'rolldice', 'diceroll'])  # pylint: disable=no-member
+@bot.hybrid_command(aliases=["r", "rolldice", "diceroll"])  # pylint: disable=no-member
 async def roll(ctx, *, dicestr: str):
     """Rolls a pool of dice in NdN format.
     Example: '?roll 1d20 2d10 d8 2d6'
