@@ -93,10 +93,10 @@ async def roll(ctx, *, dicestr: str):
     }
 
     dicerolls = {}
-    flatdicerolls = [] # all dice
+    flatdicerolls = []  # all dice
     # dice d4-d12 are called "Character Dice" and the d20 is called the "Fortune Die"
-    characterdicerolls = [] # non-d20 dice
-    fortunedicerolls = [] # d20s
+    characterdicerolls = []  # non-d20 dice
+    fortunedicerolls = []  # d20s
 
     pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
 
