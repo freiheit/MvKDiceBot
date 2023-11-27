@@ -168,10 +168,13 @@ async def roll(ctx, *, dicestr: str):
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
         fortuneimpact = sum(1 for p in fortunedicerolls if p >= 4)
         doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
-        characterimpact = sum(1 for p in characterdicerolls if p >= 4 and p < 10)
+        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
         impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
-        answer += f"**Impact:** {impact} (fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        answer += f"**Impact:** {impact} "
+        answer += (
+            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        )
 
         if cheat:
             answer += "\n# Cheating"
