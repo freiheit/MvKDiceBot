@@ -50,7 +50,7 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
-@bot.hybrid_command()  # pylint: disable=no-member
+@bot.hybrid_command(aliases=["r", "rolldice", "diceroll"])  # pylint: disable=no-member
 async def roll(ctx, *, dicestr: str):
     """Rolls a pool of dice in NdN format.
     Example: '?roll 1d20 2d10 d8 2d6'
@@ -93,7 +93,10 @@ async def roll(ctx, *, dicestr: str):
     }
 
     dicerolls = {}
-    flatdicerolls = []
+    flatdicerolls = []  # all dice
+    # dice d4-d12 are called "Character Dice" and the d20 is called the "Fortune Die"
+    characterdicerolls = []  # non-d20 dice
+    fortunedicerolls = []  # d20s
 
     pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
 
@@ -109,8 +112,6 @@ async def roll(ctx, *, dicestr: str):
         else:
             await ctx.send(f"Invalid dice size d{size}")
 
-    flatdicerolls = []
-
     for size in dicecounts:
         if dicecounts[size] > 0:
             # logger.debug(f"rolling: d{size}={dicecounts[size]}")
@@ -123,8 +124,14 @@ async def roll(ctx, *, dicestr: str):
                     result = random.randint(1, size)
                 dicerolls[size].append(result)
                 flatdicerolls.append(result)
+                if size == 20:
+                    fortunedicerolls.append(result)
+                else:
+                    characterdicerolls.append(result)
 
     flatdicerolls.sort(reverse=True)
+    fortunedicerolls.sort(reverse=True)
+    characterdicerolls.sort(reverse=True)
 
     if len(dicerolls) > 0:
         answer = ""
@@ -158,9 +165,16 @@ async def roll(ctx, *, dicestr: str):
         action_total = sum(action_dice)
         answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
 
-        impact = sum(1 for p in flatdicerolls if p >= 4)
+        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
+        fortuneimpact = sum(1 for p in fortunedicerolls if p >= 4)
+        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
+        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
+        impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
-        answer += f"**Impact:** {impact}"
+        answer += f"**Impact:** {impact} "
+        answer += (
+            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        )
 
         if cheat:
             answer += "\n# Cheating"
