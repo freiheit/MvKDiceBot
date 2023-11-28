@@ -149,12 +149,12 @@ async def roll(ctx, *, dicestr: str):
                 if disadvantage:
                     answer += "Applying _disadvantage_...\n\n"
                     dicerolls[20].sort(reverse=True)
-                dicerolls[20].pop(0)
+                retained_d20 = dicerolls[20].pop(0)
             else:
                 answer += "## Advantage and Disadvantage require 2 or more d20s\n"
                 answer += "Rolling normally...\n\n"
                 advantage = False
-                disadvantage = False
+                disadvantage = False    
 
         answer += "**Dice:** "
         for size in dicerolls:
@@ -166,15 +166,13 @@ async def roll(ctx, *, dicestr: str):
         answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
 
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-        fortuneimpact = sum(1 for p in fortunedicerolls if p >= 4)
+        fortuneimpact = 1 if retained_d20 >= 4 else 0
         doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
         characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
         impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
         answer += f"**Impact:** {impact} "
-        answer += (
-            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-        )
+        answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
 
         if cheat:
             answer += "\n# Cheating"
