@@ -154,7 +154,7 @@ async def roll(ctx, *, dicestr: str):
                 answer += "## Advantage and Disadvantage require 2 or more d20s\n"
                 answer += "Rolling normally...\n\n"
                 advantage = False
-                disadvantage = False    
+                disadvantage = False
 
         answer += "**Dice:** "
         for size in dicerolls:
@@ -172,7 +172,9 @@ async def roll(ctx, *, dicestr: str):
         impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
         answer += f"**Impact:** {impact} "
-        answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        answer += (
+            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        )
 
         if cheat:
             answer += "\n# Cheating"
