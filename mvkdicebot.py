@@ -92,8 +92,15 @@ async def roll(ctx, *, dicestr: str):
         4: 0,
     }
 
-    dicerolls = {}
-    flatdicerolls = []  # all dice
+    dicerolls = {
+        20: [],
+        12: [],
+        10: [],
+        8: [],
+        6: [],
+        4: [],
+    }
+
     # dice d4-d12 are called "Character Dice" and the d20 is called the "Fortune Die"
     characterdicerolls = []  # non-d20 dice
     fortunedicerolls = []  # d20s
@@ -123,24 +130,32 @@ async def roll(ctx, *, dicestr: str):
                 else:
                     result = random.randint(1, size)
                 dicerolls[size].append(result)
-                flatdicerolls.append(result)
                 if size == 20:
                     fortunedicerolls.append(result)
                 else:
                     characterdicerolls.append(result)
 
-    flatdicerolls.sort(reverse=True)
     fortunedicerolls.sort(reverse=True)
     characterdicerolls.sort(reverse=True)
 
-    if len(dicerolls) > 0:
+    if (
+        len(
+            dicerolls[20]
+            + dicerolls[12]
+            + dicerolls[10]
+            + dicerolls[8]
+            + dicerolls[6]
+            + dicerolls[4]
+        )
+        > 0
+    ):
         answer = ""
         if cheat:
             answer += "# Cheating\n"
 
         if advantage or disadvantage:
             if 20 in dicerolls and len(dicerolls[20]) >= 2:
-                answer += "**Original d20s:** "
+                answer += "Original d20s: "
                 answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} "
                 answer += "\n"
                 if advantage:
@@ -156,14 +171,25 @@ async def roll(ctx, *, dicestr: str):
                 advantage = False
                 disadvantage = False
 
-        answer += "**Dice:** "
+        answer += "Dice: "
         for size in dicerolls:
-            answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+            if len(dicerolls[size]) > 0:
+                answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
         answer += "\n"
+
+        flatdicerolls = (
+            dicerolls[20]
+            + dicerolls[12]
+            + dicerolls[10]
+            + dicerolls[8]
+            + dicerolls[6]
+            + dicerolls[4]
+        )
+        flatdicerolls.sort(reverse=True)
 
         action_dice = flatdicerolls[:2]
         action_total = sum(action_dice)
-        answer += f"**Action Total:** {str(action_total)} {str(action_dice)}\n"
+        answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
 
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
         fortuneimpact = 1 if retained_d20 >= 4 else 0
@@ -171,7 +197,7 @@ async def roll(ctx, *, dicestr: str):
         characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
         impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
-        answer += f"**Impact:** {impact} "
+        answer += f"**Impact: {impact}** "
         answer += (
             f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
         )
