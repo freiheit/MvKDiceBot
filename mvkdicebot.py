@@ -107,107 +107,139 @@ async def roll(ctx, *, dicestr: str):
 
     pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
 
-    for count, size in re.findall(pattern_ndn, dicestr):
-        logger.debug(f"roll: count={count} size={size}")
-        size = int(size)
-        if len(count) >= 1:
-            count = int(count)
-        elif len(count) < 1 or int(count) < 1:
-            count = 1
-        if size in dicecounts:
-            dicecounts[size] += count
-        else:
-            await ctx.send(f"Invalid dice size d{size}")
+    try:
+        for count, size in re.findall(pattern_ndn, dicestr):
+            logger.debug(f"roll: count={count} size={size}")
+            size = int(size)
+            if len(count) >= 1:
+                count = int(count)
+            elif len(count) < 1 or int(count) < 1:
+                count = 1
+            if size in dicecounts:
+                dicecounts[size] += count
+            else:
+                await ctx.reply(f"Invalid dice size d{size}")
+    except Exception:
+        await ctx.reply("Error parsing dice rolls. No NdN?")
+        return
 
-    for size in dicecounts:
-        if dicecounts[size] > 0:
-            # logger.debug(f"rolling: d{size}={dicecounts[size]}")
-            dicerolls[size] = []
-            # pylint: disable=unused-variable
-            for i in range(0, dicecounts[size]):
-                if cheat:
-                    result = size
-                else:
-                    result = random.randint(1, size)
-                dicerolls[size].append(result)
-                if size == 20:
-                    fortunedicerolls.append(result)
-                else:
-                    characterdicerolls.append(result)
+    try:
+        for size in dicecounts:
+            if dicecounts[size] > 0:
+                # logger.debug(f"rolling: d{size}={dicecounts[size]}")
+                dicerolls[size] = []
+                # pylint: disable=unused-variable
+                for i in range(0, dicecounts[size]):
+                    if cheat:
+                        result = size
+                    else:
+                        result = random.randint(1, size)
+                    dicerolls[size].append(result)
+                    if size == 20:
+                        fortunedicerolls.append(result)
+                    else:
+                        characterdicerolls.append(result)
+    except Exception:
+        await ctx.reply("Coding error rolling dice.")
+        return
 
     fortunedicerolls.sort(reverse=True)
     characterdicerolls.sort(reverse=True)
 
-    if (
-        len(
-            dicerolls[20]
-            + dicerolls[12]
-            + dicerolls[10]
-            + dicerolls[8]
-            + dicerolls[6]
-            + dicerolls[4]
-        )
-        > 0
-    ):
-        answer = ""
-        if cheat:
-            answer += "# Cheating\n"
+    try:
+        if (
+            len(
+                dicerolls[20]
+                + dicerolls[12]
+                + dicerolls[10]
+                + dicerolls[8]
+                + dicerolls[6]
+                + dicerolls[4]
+            )
+            > 0
+        ):
+            answer = ""
+            if cheat:
+                answer += "# Cheating\n"
 
-        if advantage or disadvantage:
-            if 20 in dicerolls and len(dicerolls[20]) >= 2:
-                answer += "Original d20s: "
-                answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} "
+            try:
+                if advantage or disadvantage:
+                    if 20 in dicerolls and len(dicerolls[20]) >= 2:
+                        answer += "Original d20s: "
+                        answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} "
+                        answer += "\n"
+                        if advantage:
+                            answer += "Applying _advantage_...\n\n"
+                            dicerolls[20].sort()
+                        if disadvantage:
+                            answer += "Applying _disadvantage_...\n\n"
+                            dicerolls[20].sort(reverse=True)
+                        retained_d20 = dicerolls[20].pop(0)
+                    else:
+                        answer += "## Advantage and Disadvantage require 2 or more d20s\n"
+                        answer += "Rolling normally...\n\n"
+                        advantage = False
+                        disadvantage = False
+            except Exception:
+                await ctx.reply("Coding error calculating advantage or disadvantage.")
+                return
+
+            try:
+                answer += "Dice: "
+                for size in dicerolls:
+                    if len(dicerolls[size]) > 0:
+                        answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
                 answer += "\n"
-                if advantage:
-                    answer += "Applying _advantage_...\n\n"
-                    dicerolls[20].sort()
-                if disadvantage:
-                    answer += "Applying _disadvantage_...\n\n"
-                    dicerolls[20].sort(reverse=True)
-                retained_d20 = dicerolls[20].pop(0)
-            else:
-                answer += "## Advantage and Disadvantage require 2 or more d20s\n"
-                answer += "Rolling normally...\n\n"
-                advantage = False
-                disadvantage = False
+            except Exception:
+                await ctx.reply("Coding error displaying Dice")
+                return
 
-        answer += "Dice: "
-        for size in dicerolls:
-            if len(dicerolls[size]) > 0:
-                answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
-        answer += "\n"
+            try:
+                flatdicerolls = (
+                    dicerolls[20]
+                    + dicerolls[12]
+                    + dicerolls[10]
+                    + dicerolls[8]
+                    + dicerolls[6]
+                    + dicerolls[4]
+                )
+                flatdicerolls.sort(reverse=True)
+            except Exception:
+                await ctx.reply("Coding error flattening dice rolls into single sorted list.")
+                return
 
-        flatdicerolls = (
-            dicerolls[20]
-            + dicerolls[12]
-            + dicerolls[10]
-            + dicerolls[8]
-            + dicerolls[6]
-            + dicerolls[4]
-        )
-        flatdicerolls.sort(reverse=True)
+            try:
+                action_dice = flatdicerolls[:2]
+                action_total = sum(action_dice)
+                answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
+            except Exception:
+                await ctx.reply("Coding error calculating Action Total.")
+                return
 
-        action_dice = flatdicerolls[:2]
-        action_total = sum(action_dice)
-        answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
+            try:
+                # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
+                fortuneimpact = 1 if retained_d20 >= 4 else 0
+                doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
+                characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
+                impact = fortuneimpact + doublecharacterimpact + characterimpact
+                impact = max(impact, 1)
+                answer += f"**Impact: {impact}** "
+                answer += (
+                    f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+                )
+            except Exception:
+                await ctx.reply("Coding error calculating Impact")
+                return
 
-        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-        fortuneimpact = 1 if retained_d20 >= 4 else 0
-        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
-        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
-        impact = fortuneimpact + doublecharacterimpact + characterimpact
-        impact = max(impact, 1)
-        answer += f"**Impact: {impact}** "
-        answer += (
-            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-        )
+            if cheat:
+                answer += "\n# Cheating"
 
-        if cheat:
-            answer += "\n# Cheating"
-
-        await ctx.reply(answer)
-    else:
-        await ctx.reply(f"No valid NdNs found in '{dicestr}'")
+            await ctx.reply(answer)
+        else:
+            await ctx.reply(f"No valid NdNs found in '{dicestr}'")
+    except Exception:
+        await ctx.reply("Coding error calculating totals.")
+        return
 
 
 #    try:
