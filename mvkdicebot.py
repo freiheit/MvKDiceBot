@@ -67,6 +67,8 @@ async def roll(ctx, *, dicestr: str):
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
+    # pylint: disable=too-many-nested-blocks
+    # pylint: disable=line-too-long
 
     logger.debug(f"roll: {dicestr}")
 
