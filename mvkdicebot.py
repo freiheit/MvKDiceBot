@@ -121,7 +121,7 @@ async def roll(ctx, *, dicestr: str):
                 await ctx.reply(f"Invalid dice size d{size}")
     except Exception:
         await ctx.reply("Error parsing dice rolls. No NdN?")
-        return
+        raise
 
     try:
         for size in dicecounts:
@@ -141,7 +141,7 @@ async def roll(ctx, *, dicestr: str):
                         characterdicerolls.append(result)
     except Exception:
         await ctx.reply("Coding error rolling dice.")
-        return
+        raise
 
     fortunedicerolls.sort(reverse=True)
     characterdicerolls.sort(reverse=True)
@@ -164,17 +164,21 @@ async def roll(ctx, *, dicestr: str):
 
             try:
                 if advantage or disadvantage:
-                    if 20 in dicerolls and len(dicerolls[20]) >= 2:
+                    logger.debug(f"Dicecounts: {dicecounts}")
+                    logger.debug(f"Dicerolls: {dicerolls}")
+                    if dicecounts[20] >= 2 and len(dicerolls[20]) >= 2:
                         answer += "Original d20s: "
-                        answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} "
-                        answer += "\n"
+                        answer += f"{len(dicerolls[20])}d20{ str(dicerolls[20])} -- "
                         if advantage:
                             answer += "Applying _advantage_...\n\n"
-                            dicerolls[20].sort()
+                            dicerolls[20].sort(reverse=True)
+                            logger.debug(f"advantage rolls {dicerolls[20]}")
                         if disadvantage:
                             answer += "Applying _disadvantage_...\n\n"
-                            dicerolls[20].sort(reverse=True)
-                        retained_d20 = dicerolls[20].pop(0)
+                            dicerolls[20].sort()
+                            logger.debug(f"disadvantage rolls {dicerolls[20]}")
+                        retained_d20 = dicerolls[20][0]
+                        dicerolls[20] = [retained_d20]
                     else:
                         answer += (
                             "## Advantage and Disadvantage require 2 or more d20s\n"
@@ -184,7 +188,7 @@ async def roll(ctx, *, dicestr: str):
                         disadvantage = False
             except Exception:
                 await ctx.reply("Coding error calculating advantage or disadvantage.")
-                return
+                raise
 
             try:
                 answer += "Dice: "
@@ -196,7 +200,7 @@ async def roll(ctx, *, dicestr: str):
                 answer += "\n"
             except Exception:
                 await ctx.reply("Coding error displaying Dice")
-                return
+                raise
 
             try:
                 flatdicerolls = (
@@ -212,7 +216,7 @@ async def roll(ctx, *, dicestr: str):
                 await ctx.reply(
                     "Coding error flattening dice rolls into single sorted list."
                 )
-                return
+                raise
 
             try:
                 action_dice = flatdicerolls[:2]
@@ -220,11 +224,11 @@ async def roll(ctx, *, dicestr: str):
                 answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
             except Exception:
                 await ctx.reply("Coding error calculating Action Total.")
-                return
+                raise
 
             try:
                 # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-                fortuneimpact = 1 if retained_d20 >= 4 else 0
+                fortuneimpact = 1 if dicerolls[20][0] >= 4 else 0
                 doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
                 characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
                 impact = fortuneimpact + doublecharacterimpact + characterimpact
@@ -233,7 +237,7 @@ async def roll(ctx, *, dicestr: str):
                 answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
             except Exception:
                 await ctx.reply("Coding error calculating Impact")
-                return
+                raise
 
             if cheat:
                 answer += "\n# Cheating"
@@ -243,7 +247,7 @@ async def roll(ctx, *, dicestr: str):
             await ctx.reply(f"No valid NdNs found in '{dicestr}'")
     except Exception:
         await ctx.reply("Coding error calculating totals.")
-        return
+        raise
 
 
 #    try:
