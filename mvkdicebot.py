@@ -176,7 +176,9 @@ async def roll(ctx, *, dicestr: str):
                             dicerolls[20].sort(reverse=True)
                         retained_d20 = dicerolls[20].pop(0)
                     else:
-                        answer += "## Advantage and Disadvantage require 2 or more d20s\n"
+                        answer += (
+                            "## Advantage and Disadvantage require 2 or more d20s\n"
+                        )
                         answer += "Rolling normally...\n\n"
                         advantage = False
                         disadvantage = False
@@ -188,7 +190,9 @@ async def roll(ctx, *, dicestr: str):
                 answer += "Dice: "
                 for size in dicerolls:
                     if len(dicerolls[size]) > 0:
-                        answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+                        answer += (
+                            f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+                        )
                 answer += "\n"
             except Exception:
                 await ctx.reply("Coding error displaying Dice")
@@ -205,7 +209,9 @@ async def roll(ctx, *, dicestr: str):
                 )
                 flatdicerolls.sort(reverse=True)
             except Exception:
-                await ctx.reply("Coding error flattening dice rolls into single sorted list.")
+                await ctx.reply(
+                    "Coding error flattening dice rolls into single sorted list."
+                )
                 return
 
             try:
@@ -224,9 +230,7 @@ async def roll(ctx, *, dicestr: str):
                 impact = fortuneimpact + doublecharacterimpact + characterimpact
                 impact = max(impact, 1)
                 answer += f"**Impact: {impact}** "
-                answer += (
-                    f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-                )
+                answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
             except Exception:
                 await ctx.reply("Coding error calculating Impact")
                 return
