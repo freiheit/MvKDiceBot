@@ -147,17 +147,7 @@ async def roll(ctx, *, dicestr: str):
     characterdicerolls.sort(reverse=True)
 
     try:
-        if (
-            len(
-                dicerolls[20]
-                + dicerolls[12]
-                + dicerolls[10]
-                + dicerolls[8]
-                + dicerolls[6]
-                + dicerolls[4]
-            )
-            > 0
-        ):
+        if len(dicerolls[20] + dicerolls[12] + dicerolls[10] + dicerolls[8] + dicerolls[6] + dicerolls[4]) > 0:
             answer = ""
             if cheat:
                 answer += "# Cheating\n"
@@ -180,9 +170,7 @@ async def roll(ctx, *, dicestr: str):
                         retained_d20 = dicerolls[20][0]
                         dicerolls[20] = [retained_d20]
                     else:
-                        answer += (
-                            "## Advantage and Disadvantage require 2 or more d20s\n"
-                        )
+                        answer += "## Advantage and Disadvantage require 2 or more d20s\n"
                         answer += "Rolling normally...\n\n"
                         advantage = False
                         disadvantage = False
@@ -194,9 +182,7 @@ async def roll(ctx, *, dicestr: str):
                 answer += "Dice: "
                 for size in dicerolls:
                     if len(dicerolls[size]) > 0:
-                        answer += (
-                            f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
-                        )
+                        answer += f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
                 answer += "\n"
             except Exception:
                 await ctx.reply("Coding error displaying Dice")
@@ -204,18 +190,11 @@ async def roll(ctx, *, dicestr: str):
 
             try:
                 flatdicerolls = (
-                    dicerolls[20]
-                    + dicerolls[12]
-                    + dicerolls[10]
-                    + dicerolls[8]
-                    + dicerolls[6]
-                    + dicerolls[4]
+                    dicerolls[20] + dicerolls[12] + dicerolls[10] + dicerolls[8] + dicerolls[6] + dicerolls[4]
                 )
                 flatdicerolls.sort(reverse=True)
             except Exception:
-                await ctx.reply(
-                    "Coding error flattening dice rolls into single sorted list."
-                )
+                await ctx.reply("Coding error flattening dice rolls into single sorted list.")
                 raise
 
             try:
