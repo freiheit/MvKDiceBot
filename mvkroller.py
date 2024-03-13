@@ -23,7 +23,7 @@ import logging
 import random
 import re
 
-helptext = """# MvKDiceBot
+HELP_TEXT = """# MvKDiceBot
 **Rolls a pool of dice in NdN format.**
 Example: '?roll 1d20 2d10 d8 2d6'
 
@@ -37,17 +37,19 @@ Ignores anything extra it doesn't understand.
 
 logger = logging.getLogger(__name__)
 
-"""Boring Exception Class"""
 class RollError(Exception):
-  mMessage = ""
+  """Boring Exception Class"""
+  message = ""
 
   def __init__(self, msg):
-    self.mMessage = msg
+    self.message = msg
 
+  # pylint: disable=invalid-name
   def getMessage(self):
-    return self.mMessage
+    """return this exception's message"""
+    return self.message
 
-def parseDice(dicestr: str):
+def parse_dice(dicestr: str):
   """Parses the dice string and returns a dictionary of dieSize->count"""
   # types of dice we're looking for:
   dicecounts = {
@@ -63,7 +65,7 @@ def parseDice(dicestr: str):
 
   try:
     for count, size in re.findall(pattern_ndn, dicestr):
-      logger.debug(f"Roll count={count} size={size}")
+      logger.debug("Roll count=%s size=%s", count, size)
       size = int(size)
       if len(count) >= 1:
         count = int(count)
@@ -79,7 +81,7 @@ def parseDice(dicestr: str):
   return dicecounts
 
 
-def rollDice(dicecounts, cheat=False):
+def roll_dice(dicecounts, cheat=False):
   """Returns a dictionary of dieSize => rolls[]"""
   dicerolls = {
     20: [],
@@ -91,17 +93,13 @@ def rollDice(dicecounts, cheat=False):
   }
 
   try:
-    for size in dicecounts:
-      if dicecounts[size] > 0:
-        # logger.debug(f"rolling: d{size}={dicecounts[size]}")
-        dicerolls[size] = []
+    for (size,num) in dicecounts.items():
+      if num > 0:
         # pylint: disable=unused-variable
-        for i in range(0, dicecounts[size]):
-          if cheat:
-            result = size
-          else:
-            result = random.randint(1, size)
-          dicerolls[size].append(result)
+        if cheat:
+          dicerolls[size] = [size for idx in range(0,num)]
+        else:
+          dicerolls[size] = [random.randint(1,size) for idx in range(0,num)]
   except Exception as exc:
     raise RollError("Exception while rolling dice.") from exc
 
@@ -110,7 +108,7 @@ def rollDice(dicecounts, cheat=False):
 def roll(dicestr: str):
   """Implementation of dice roller."""
 
-  logger.debug(f"Roll {dicestr}")
+  logger.debug("Roll %s", {dicestr})
 
   answer = ""
   cheat = False
@@ -118,7 +116,7 @@ def roll(dicestr: str):
   disadvantage = False
 
   if re.search(r"help", dicestr, flags=re.IGNORECASE):
-    return helptext
+    return HELP_TEXT
 
   if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
     disadvantage = True
@@ -128,39 +126,38 @@ def roll(dicestr: str):
   if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
     cheat = True
 
-  dicecounts = parseDice(dicestr)
-  dicerolls = rollDice(dicecounts, cheat)
+  dicecounts = parse_dice(dicestr)
+  dicerolls = roll_dice(dicecounts, cheat)
 
   # the d20 is called the "Fortune Die"
   fortunedicerolls = dicerolls[20]
   fortunedicerolls.sort(reverse=True)
-  logger.debug("fortune rolls " + str(fortunedicerolls))
+  logger.debug("fortune rolls %s", fortunedicerolls)
 
   # dice d4-d12 are called "Character Dice"
-  del dicerolls[20] # we want everything but the d20s
-  characterdicerolls = [val for sub in dicerolls.values() for val in sub]
+  # Grab all the values from all the rolls that weren't d20s
+  characterdicerolls = [val for (key,rollset) in dicerolls.items() if key != 20 for val in rollset]
   characterdicerolls.sort(reverse=True)
-  dicerolls[20] = fortunedicerolls # put the d20s back
-  logger.debug("character rolls " + str(characterdicerolls))
+  logger.debug("character rolls %s", characterdicerolls)
 
-  if (len(characterdicerolls)+len(fortunedicerolls) < 1):
+  if len(characterdicerolls)+len(fortunedicerolls) < 1 :
     raise RollError("Not enough dice to roll")
   
   try:
     if advantage or disadvantage:
-      logger.debug(f"Dicecounts {dicecounts}")
-      logger.debug(f"Dicerolls {dicerolls}")
+      logger.debug("Dicecounts %s", dicecounts)
+      logger.debug("Dicerolls %s", dicerolls)
       if len(fortunedicerolls) >= 2:
         answer += "Original d20s: "
         answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
         if advantage:
           answer += "Applying _advantage_...\n\n"
           dicerolls[20].sort(reverse=True)
-          logger.debug(f"Advantage rolls {dicerolls[20]}")
+          logger.debug("Advantage rolls %s", dicerolls[20])
         if disadvantage:
           answer += "Applying _disadvantage_...\n\n"
           dicerolls[20].sort()
-          logger.debug(f"Disadvantage rolls {dicerolls[20]}")
+          logger.debug("Disadvantage rolls %s", dicerolls[20])
         retained_d20 = dicerolls[20][0]
         dicerolls[20] = [retained_d20]
       else:
@@ -175,10 +172,10 @@ def roll(dicestr: str):
 
   try:
     answer += "Dice: "
-    for size in dicerolls:
-      if len(dicerolls[size]) > 0:
+    for (size,values) in dicerolls.items():
+      if len(values) > 0:
         answer += (
-          f"{len(dicerolls[size])}d{size}{ str(dicerolls[size])} "
+          f"{len(values)}d{size}{ str(values)} "
         )
     answer += "\n"
   except Exception as exc:
