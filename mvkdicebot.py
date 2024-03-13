@@ -64,7 +64,7 @@ async def roll(ctx, *, dicestr: str):
     try:
         response = mvkroller.roll(dicestr)
         await ctx.reply(response)
-    except Exception as exc:
+    except mvkroller.RollError as exc:
         await ctx.reply(exc.getMessage())
         raise
 
