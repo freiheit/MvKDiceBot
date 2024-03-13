@@ -20,8 +20,6 @@
 
 import logging
 import os
-import random
-import re
 import warnings
 from configparser import ConfigParser
 import discord
@@ -48,7 +46,7 @@ bot = commands.AutoShardedBot(
 async def on_ready():
     """Log when we start up"""
     # pylint: disable=logging-fstring-interpolation
-    logger.warning(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
 
 
 @bot.hybrid_command(aliases=["r", "rolldice", "diceroll"])  # pylint: disable=no-member
@@ -71,16 +69,6 @@ async def roll(ctx, *, dicestr: str):
         raise
 
 
-#    try:
-#        rolls, limit = map(int, dicestr.split("d"))
-#    except Exception:
-#        await ctx.send("Format has to be in NdN!")
-#        return
-
-#    result = ", ".join(str(random.randint(1, limit)) for r in range(rolls))
-#    await ctx.send(result)
-
-
 class ImproperlyConfigured(Exception):
     """Boring Exception Class"""
 
@@ -97,7 +85,6 @@ DEFAULT_CONFIG_PATHS = [
     os.path.join(BASE_DIR, "mvkdicebot.ini"),
     os.path.join("mvkdicebot.ini"),
 ]
-
 
 def get_config():
     """Find and parse our config"""
