@@ -1,6 +1,6 @@
 #!.venv/bin/python3
 # MvKRoller: Dice roller for the MvK Dice Bot
-# Copyright (C) 2023  Eric Eisenhart
+# Copyright (C) 2023 Eric Eisenhart
 # edited by CJ Holmes
 #
 # This program is free software: you can redistribute it and/or modify
@@ -10,11 +10,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    See the
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # https://github.com/freiheit/MvKDiceBot
 """MvKRoller: Dice roller for the MvKDiceBot"""
@@ -38,175 +38,184 @@ Ignores anything extra it doesn't understand.
 logger = logging.getLogger(__name__)
 
 class RollError(Exception):
-  """Boring Exception Class"""
-  message = ""
+    """Boring Exception Class"""
+    message = ""
 
-  def __init__(self, msg):
-    self.message = msg
+    def __init__(self, msg):
+        self.message = msg
 
-  # pylint: disable=invalid-name
-  def getMessage(self):
-    """return this exception's message"""
-    return self.message
+    # pylint: disable=invalid-name
+    def getMessage(self):
+        """return this exception's message"""
+        return self.message
 
 def parse_dice(dicestr: str):
-  """Parses the dice string and returns a dictionary of dieSize->count"""
-  # types of dice we're looking for:
-  dicecounts = {
-    20: 0,
-    12: 0,
-    10: 0,
-    8: 0,
-    6: 0,
-    4: 0,
-  }
+    """Parses the dice string and returns a dictionary of dieSize->count"""
+    # types of dice we're looking for:
+    dicecounts = {
+        20: 0,
+        12: 0,
+        10: 0,
+        8: 0,
+        6: 0,
+        4: 0,
+    }
 
-  pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
+    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
 
-  try:
-    for count, size in re.findall(pattern_ndn, dicestr):
-      logger.debug("Roll count=%s size=%s", count, size)
-      size = int(size)
-      if len(count) >= 1:
-        count = int(count)
-      elif len(count) < 1 or int(count) < 1:
-        count = 1
-      if size in dicecounts:
-        dicecounts[size] += count
-      else:
-        raise RollError(f"Invalid dice size d{size}")
-  except Exception as exc:
-    raise RollError("Exception while parsing dice.") from exc
+    try:
+        for count, size in re.findall(pattern_ndn, dicestr):
+            logger.debug("Roll count=%s size=%s", count, size)
+            size = int(size)
+            if len(count) >= 1:
+                count = int(count)
+            elif len(count) < 1 or int(count) < 1:
+                count = 1
+            if size in dicecounts:
+                dicecounts[size] += count
+            else:
+                raise RollError(f"Invalid dice size d{size}")
+    except Exception as exc:
+        raise RollError("Exception while parsing dice.") from exc
 
-  return dicecounts
-
+    return dicecounts
 
 def roll_dice(dicecounts, cheat=False):
-  """Returns a dictionary of dieSize => rolls[]"""
-  dicerolls = {
-    20: [],
-    12: [],
-    10: [],
-    8: [],
-    6: [],
-    4: [],
-  }
+    """Returns a dictionary of dieSize => rolls[]"""
+    dicerolls = {
+        20: [],
+        12: [],
+        10: [],
+        8: [],
+        6: [],
+        4: [],
+    }
 
-  try:
-    for (size,num) in dicecounts.items():
-      if num > 0:
-        # pylint: disable=unused-variable
-        if cheat:
-          dicerolls[size] = [size for idx in range(0,num)]
-        else:
-          dicerolls[size] = [random.randint(1,size) for idx in range(0,num)]
-  except Exception as exc:
-    raise RollError("Exception while rolling dice.") from exc
+    try:
+        for (size,num) in dicecounts.items():
+            if num > 0:
+                # pylint: disable=unused-variable
+                if cheat:
+                    dicerolls[size] = [size for idx in range(0,num)]
+                else:
+                    dicerolls[size] = [random.randint(1,size) for idx in range(0,num)]
+    except Exception as exc:
+        raise RollError("Exception while rolling dice.") from exc
 
-  return dicerolls
+    return dicerolls
+
+def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
+    """Perform extra work when rolling with advantage or disadvantage"""
+    answer = ""
+    fortunedicerolls = dicerolls[20]
+
+    try:
+        if advantage or disadvantage:
+            logger.debug("Dicecounts %s", dicecounts)
+            logger.debug("Dicerolls %s", dicerolls)
+            if len(fortunedicerolls) >= 2:
+                answer += "Original d20s: "
+                answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
+                if advantage:
+                    answer += "Applying _advantage_...\n\n"
+                    dicerolls[20].sort(reverse=True)
+                    logger.debug("Advantage rolls %s", dicerolls[20])
+                if disadvantage:
+                    answer += "Applying _disadvantage_...\n\n"
+                    dicerolls[20].sort()
+                    logger.debug("Disadvantage rolls %s", dicerolls[20])
+                dicerolls[20] = [dicerolls[20][0]]
+            else:
+                answer += (
+                    "## Advantage and Disadvantage require 2 or more d20s\n"
+                )
+                answer += "Rolling normally...\n\n"
+    except Exception as exc:
+        raise RollError("Coding error calculating advantage or disadvantage.") from exc
+
+    return answer
 
 def roll(dicestr: str):
-  """Implementation of dice roller."""
+    """Implementation of dice roller."""
+    # xpylint: disable=too-many-locals
+    # xpylint: disable=too-many-statements
 
-  logger.debug("Roll %s", {dicestr})
+    logger.debug("Roll %s", {dicestr})
 
-  answer = ""
-  cheat = False
-  advantage = False
-  disadvantage = False
+    answer = ""
+    cheat = False
+    advantage = False
+    disadvantage = False
 
-  if re.search(r"help", dicestr, flags=re.IGNORECASE):
-    return HELP_TEXT
+    if re.search(r"help", dicestr, flags=re.IGNORECASE):
+        return HELP_TEXT
 
-  if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
-    disadvantage = True
-  elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
-    advantage = True
+    if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
+        disadvantage = True
+    elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
+        advantage = True
 
-  if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
-    cheat = True
+    if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
+        cheat = True
 
-  dicecounts = parse_dice(dicestr)
-  dicerolls = roll_dice(dicecounts, cheat)
+    dicecounts = parse_dice(dicestr)
+    dicerolls = roll_dice(dicecounts, cheat)
 
-  # the d20 is called the "Fortune Die"
-  fortunedicerolls = dicerolls[20]
-  fortunedicerolls.sort(reverse=True)
-  logger.debug("fortune rolls %s", fortunedicerolls)
+    # the d20 is called the "Fortune Die"
+    fortunedicerolls = dicerolls[20]
+    fortunedicerolls.sort(reverse=True)
+    logger.debug("fortune rolls %s", fortunedicerolls)
 
-  # dice d4-d12 are called "Character Dice"
-  # Grab all the values from all the rolls that weren't d20s
-  characterdicerolls = [val for (key,rollset) in dicerolls.items() if key != 20 for val in rollset]
-  characterdicerolls.sort(reverse=True)
-  logger.debug("character rolls %s", characterdicerolls)
+    # dice d4-d12 are called "Character Dice"
+    # Grab all the values from all the rolls that weren't d20s
+    characterdicerolls = [val
+                          for (key,rollset) in dicerolls.items() if key != 20
+                          for val in rollset]
+    characterdicerolls.sort(reverse=True)
+    logger.debug("character rolls %s", characterdicerolls)
 
-  if len(characterdicerolls)+len(fortunedicerolls) < 1 :
-    raise RollError("Not enough dice to roll")
-  
-  try:
-    if advantage or disadvantage:
-      logger.debug("Dicecounts %s", dicecounts)
-      logger.debug("Dicerolls %s", dicerolls)
-      if len(fortunedicerolls) >= 2:
-        answer += "Original d20s: "
-        answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
-        if advantage:
-          answer += "Applying _advantage_...\n\n"
-          dicerolls[20].sort(reverse=True)
-          logger.debug("Advantage rolls %s", dicerolls[20])
-        if disadvantage:
-          answer += "Applying _disadvantage_...\n\n"
-          dicerolls[20].sort()
-          logger.debug("Disadvantage rolls %s", dicerolls[20])
-        retained_d20 = dicerolls[20][0]
-        dicerolls[20] = [retained_d20]
-      else:
-        answer += (
-          "## Advantage and Disadvantage require 2 or more d20s\n"
-        )
-        answer += "Rolling normally...\n\n"
-        advantage = False
-        disadvantage = False
-  except Exception as exc:
-    raise RollError("Coding error calculating advantage or disadvantage.") from exc
+    if len(characterdicerolls)+len(fortunedicerolls) < 1 :
+        raise RollError("Not enough dice to roll")
 
-  try:
-    answer += "Dice: "
-    for (size,values) in dicerolls.items():
-      if len(values) > 0:
-        answer += (
-          f"{len(values)}d{size}{ str(values)} "
-        )
-    answer += "\n"
-  except Exception as exc:
-    raise RollError("Coding error displaying Dice") from exc
+    answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
 
-  try:
-    flatdicerolls = [val for sub in dicerolls.values() for val in sub]
-    flatdicerolls.sort(reverse=True)
-  except Exception as exc:
-    raise RollError("Coding error flattening dice rolls into single sorted list.") from exc
+    try:
+        answer += "Dice: "
+        for (size,values) in dicerolls.items():
+            if len(values) > 0:
+                answer += (
+                    f"{len(values)}d{size}{ str(values)} "
+                )
+        answer += "\n"
+    except Exception as exc:
+        raise RollError("Coding error displaying Dice") from exc
 
-  try:
-    action_dice = flatdicerolls[:2]
-    action_total = sum(action_dice)
-    answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
-  except Exception as exc:
-    raise RollError("Coding error calculating Action Total.") from exc
+    try:
+        flatdicerolls = [val for sub in dicerolls.values() for val in sub]
+        flatdicerolls.sort(reverse=True)
+    except Exception as exc:
+        raise RollError("Coding error flattening dice rolls into single sorted list.") from exc
 
-  try:
-    # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-    fortuneimpact = 1 if dicerolls[20][0] >= 4 else 0
-    doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
-    characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
-    impact = fortuneimpact + doublecharacterimpact + characterimpact
-    impact = max(impact, 1)
-    answer += f"**Impact: {impact}** "
-    answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-  except Exception as exc:
-    raise RollError("Coding error calculating Impact") from exc
+    try:
+        action_dice = flatdicerolls[:2]
+        action_total = sum(action_dice)
+        answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
+    except Exception as exc:
+        raise RollError("Coding error calculating Action Total.") from exc
 
-  if cheat:
-    answer = "\n# Cheating" + answer + "\n# Cheating"
+    try:
+        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
+        fortuneimpact = 1 if dicerolls[20][0] >= 4 else 0
+        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
+        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
+        impact = fortuneimpact + doublecharacterimpact + characterimpact
+        impact = max(impact, 1)
+        answer += f"**Impact: {impact}** "
+        answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+    except Exception as exc:
+        raise RollError("Coding error calculating Impact") from exc
 
-  return answer
+    if cheat:
+        answer = "\n# Cheating" + answer + "\n# Cheating"
+
+    return answer
