@@ -104,6 +104,22 @@ def roll_dice(dicecounts, cheat=False):
 
     return dicerolls
 
+def print_dice(dicerolls):
+    "Creates a string rep of the rolled dice"
+    answer = "Dice: "
+    try:
+        for (size,values) in dicerolls.items():
+            if len(values) > 0:
+                answer += (
+                    f"{len(values)}d{size}{ str(values)} "
+                )
+        answer += "\n"
+    except Exception as exc:
+        raise RollError("Coding error displaying Dice") from exc
+
+    return answer
+
+
 def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     """Perform extra work when rolling with advantage or disadvantage"""
     answer = ""
@@ -137,8 +153,6 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
 
 def roll(dicestr: str):
     """Implementation of dice roller."""
-    # xpylint: disable=too-many-locals
-    # xpylint: disable=too-many-statements
 
     logger.debug("Roll %s", {dicestr})
 
@@ -179,33 +193,18 @@ def roll(dicestr: str):
 
     answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
 
-    try:
-        answer += "Dice: "
-        for (size,values) in dicerolls.items():
-            if len(values) > 0:
-                answer += (
-                    f"{len(values)}d{size}{ str(values)} "
-                )
-        answer += "\n"
-    except Exception as exc:
-        raise RollError("Coding error displaying Dice") from exc
+    answer += print_dice(dicerolls)
 
+    # Compute the action total, using up to one d20 and the highest character die roll.
     try:
-        flatdicerolls = [val for sub in dicerolls.values() for val in sub]
-        flatdicerolls.sort(reverse=True)
+        action_dice = fortunedicerolls[:1] + characterdicerolls[:1]
+        answer += f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
     except Exception as exc:
-        raise RollError("Coding error flattening dice rolls into single sorted list.") from exc
-
-    try:
-        action_dice = flatdicerolls[:2]
-        action_total = sum(action_dice)
-        answer += f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
-    except Exception as exc:
-        raise RollError("Coding error calculating Action Total.") from exc
+        raise RollError("Coding error flattening dice rolls and creating total.") from exc
 
     try:
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-        fortuneimpact = 1 if dicerolls[20][0] >= 4 else 0
+        fortuneimpact = 1 if fortunedicerolls[0] >= 4 else 0
         doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
         characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
         impact = fortuneimpact + doublecharacterimpact + characterimpact
