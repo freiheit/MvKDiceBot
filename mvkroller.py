@@ -120,11 +120,11 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
             answer += "Original d20s: "
             answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
             if advantage:
-                answer += "Applying _advantage_...\n\n"
+                answer += "_Applying advantage_\n\n"
                 dicerolls[20].sort(reverse=True)
                 logger.debug("Advantage rolls %s", dicerolls[20])
             if disadvantage:
-                answer += "Applying _disadvantage_...\n\n"
+                answer += "_Applying disadvantage_\n\n"
                 dicerolls[20].sort()
                 logger.debug("Disadvantage rolls %s", dicerolls[20])
             dicerolls[20] = [dicerolls[20][0]]
