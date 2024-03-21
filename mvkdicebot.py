@@ -69,6 +69,7 @@ async def roll(ctx, *, dicestr: str):
         raise
 
 
+
 class ImproperlyConfigured(Exception):
     """Boring Exception Class"""
 
