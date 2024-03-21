@@ -49,9 +49,12 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
 
 
-@bot.hybrid_command(aliases=["r", "rolldice", "diceroll"])  # pylint: disable=no-member
-async def roll(ctx, *, dicestr: str):
-    """Rolls a pool of dice in NdN format.
+@bot.hybrid_command(
+    aliases=["r", "R", "roll", "rolldice", "diceroll"]
+)  # pylint: disable=no-member
+async def mvkroll(ctx, *, dicestr: str):
+    """Rolls NdN format pool of dice and does MvK rules math for you.
+
     Example: '?roll 1d20 2d10 d8 2d6'
 
     Add 'advantage' to discard lowest d20.
@@ -62,7 +65,25 @@ async def roll(ctx, *, dicestr: str):
     Ignores anything extra it doesn't understand.
     """
     try:
-        response = mvkroller.roll(dicestr)
+        response = mvkroller.mvkroll(dicestr)
+        await ctx.reply(response)
+    except mvkroller.RollError as exc:
+        await ctx.reply(exc.getMessage())
+        raise
+
+
+@bot.hybrid_command(
+    aliases=["p", "P", "pr", "PR", "justroll", "justdice", "plain"]
+)  # pylint: disable=no-member
+async def plainroll(ctx, *, dicestr: str):
+    """Just rolls NdN format pool of dice.
+
+    Example: '?roll 1d20 2d10 d8 2d6'
+
+    Ignores anything extra it doesn't understand.
+    """
+    try:
+        response = mvkroller.plainroll(dicestr)
         await ctx.reply(response)
     except mvkroller.RollError as exc:
         await ctx.reply(exc.getMessage())
@@ -85,6 +106,7 @@ DEFAULT_CONFIG_PATHS = [
     os.path.join(BASE_DIR, "mvkdicebot.ini"),
     os.path.join("mvkdicebot.ini"),
 ]
+
 
 def get_config():
     """Find and parse our config"""
