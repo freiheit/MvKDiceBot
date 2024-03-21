@@ -19,6 +19,7 @@
 # https://github.com/freiheit/MvKDiceBot
 """MvKRoller: Dice roller for the MvKDiceBot"""
 
+import functools
 import logging
 import random
 import re
@@ -40,6 +41,7 @@ class RollError(Exception):
         return self.message
 
 
+@functools.cache
 def parse_dice(dicestr: str):
     """Parses the dice string and returns a dictionary of dieSize->count"""
     # types of dice we're looking for:
