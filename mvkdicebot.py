@@ -49,8 +49,8 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
 
 
-@bot.hybrid_command(aliases=["r", "R", "rolldice", "diceroll"])  # pylint: disable=no-member
-async def roll(ctx, *, dicestr: str):
+@bot.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])  # pylint: disable=no-member
+async def mvkroll(ctx, *, dicestr: str):
     """Rolls NdN format pool of dice and does MvK rules math for you.
 
     Example: '?roll 1d20 2d10 d8 2d6'
