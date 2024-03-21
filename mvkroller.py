@@ -23,18 +23,6 @@ import logging
 import random
 import re
 
-HELP_TEXT = """# MvKDiceBot
-**Rolls a pool of dice in NdN format.**
-Example: '?roll 1d20 2d10 d8 2d6'
-
-Add 'advantage' to discard lowest d20.
-Add 'disadvantage' to discard highest d20.
-Example: '?roll 2d20 2d10 advantage'
-Example: '?roll 2d20 2d10 disadvantage'
-
-Ignores anything extra it doesn't understand.
-"""
-
 logger = logging.getLogger(__name__)
 
 class RollError(Exception):
@@ -160,9 +148,6 @@ def mvkroll(dicestr: str):
     cheat = False
     advantage = False
     disadvantage = False
-
-    if re.search(r"help", dicestr, flags=re.IGNORECASE):
-        return HELP_TEXT
 
     if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
         disadvantage = True
