@@ -117,23 +117,17 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
         if advantage or disadvantage:
             logger.debug("Dicecounts %s", dicecounts)
             logger.debug("Dicerolls %s", dicerolls)
-            if len(fortunedicerolls) >= 2:
-                answer += "Original d20s: "
-                answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
-                if advantage:
-                    answer += "Applying _advantage_...\n\n"
-                    dicerolls[20].sort(reverse=True)
-                    logger.debug("Advantage rolls %s", dicerolls[20])
-                if disadvantage:
-                    answer += "Applying _disadvantage_...\n\n"
-                    dicerolls[20].sort()
-                    logger.debug("Disadvantage rolls %s", dicerolls[20])
-                dicerolls[20] = [dicerolls[20][0]]
-            else:
-                answer += (
-                    "## Advantage and Disadvantage require 2 or more d20s\n"
-                )
-                answer += "Rolling normally...\n\n"
+            answer += "Original d20s: "
+            answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
+            if advantage:
+                answer += "Applying _advantage_...\n\n"
+                dicerolls[20].sort(reverse=True)
+                logger.debug("Advantage rolls %s", dicerolls[20])
+            if disadvantage:
+                answer += "Applying _disadvantage_...\n\n"
+                dicerolls[20].sort()
+                logger.debug("Disadvantage rolls %s", dicerolls[20])
+            dicerolls[20] = [dicerolls[20][0]]
     except Exception as exc:
         raise RollError("Coding error calculating advantage or disadvantage.") from exc
 
@@ -158,6 +152,17 @@ def mvkroll(dicestr: str):
         cheat = True
 
     dicecounts = parse_dice(dicestr)
+
+    # advantage and disadvantage need _at least_ 2d20
+    # everything else only gets 1d20
+    if advantage or disadvantage:
+       if dicecounts[20] < 2:
+         dicecounts[20] = 2
+         answer += "_Setting 2d20 for advantage/disadvantage_\n"
+    elif dicecounts[20] > 1 or dicecounts[20] == 0:
+       dicecounts[20] = 1
+       answer += "_No advantage/disadvantage, setting 1d20_\n"
+
     dicerolls = roll_dice(dicecounts, cheat)
 
     # the d20 is called the "Fortune Die"
