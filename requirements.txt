@@ -20,6 +20,6 @@ pathspec==0.12.1
 platformdirs==4.2.0
 pycodestyle==2.11.1
 pyflakes==3.1.0
-pylint==3.0.3
+pylint==3.1.0
 tomlkit==0.12.4
 yarl==1.9.4
