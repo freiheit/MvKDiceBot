@@ -62,7 +62,7 @@ async def roll(ctx, *, dicestr: str):
     Ignores anything extra it doesn't understand.
     """
     try:
-        response = mvkroller.roll(dicestr)
+        response = mvkroller.mvkroll(dicestr)
         await ctx.reply(response)
     except mvkroller.RollError as exc:
         await ctx.reply(exc.getMessage())

@@ -151,8 +151,8 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
 
     return answer
 
-def roll(dicestr: str):
-    """Implementation of dice roller."""
+def mvkroll(dicestr: str):
+    """Implementation of dice roller that applies MvK rules."""
 
     logger.debug("Roll %s", {dicestr})
 
