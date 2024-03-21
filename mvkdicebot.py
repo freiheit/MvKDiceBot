@@ -49,7 +49,9 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
 
 
-@bot.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])  # pylint: disable=no-member
+@bot.hybrid_command(
+    aliases=["r", "R", "roll", "rolldice", "diceroll"]
+)  # pylint: disable=no-member
 async def mvkroll(ctx, *, dicestr: str):
     """Rolls NdN format pool of dice and does MvK rules math for you.
 
@@ -69,7 +71,10 @@ async def mvkroll(ctx, *, dicestr: str):
         await ctx.reply(exc.getMessage())
         raise
 
-@bot.hybrid_command(aliases=["p", "P", "pr", "PR", "justroll", "justdice", "plain"])  # pylint: disable=no-member
+
+@bot.hybrid_command(
+    aliases=["p", "P", "pr", "PR", "justroll", "justdice", "plain"]
+)  # pylint: disable=no-member
 async def plainroll(ctx, *, dicestr: str):
     """Just rolls NdN format pool of dice.
 
@@ -83,6 +88,7 @@ async def plainroll(ctx, *, dicestr: str):
     except mvkroller.RollError as exc:
         await ctx.reply(exc.getMessage())
         raise
+
 
 class ImproperlyConfigured(Exception):
     """Boring Exception Class"""
@@ -100,6 +106,7 @@ DEFAULT_CONFIG_PATHS = [
     os.path.join(BASE_DIR, "mvkdicebot.ini"),
     os.path.join("mvkdicebot.ini"),
 ]
+
 
 def get_config():
     """Find and parse our config"""

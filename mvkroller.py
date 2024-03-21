@@ -25,8 +25,10 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
 class RollError(Exception):
     """Boring Exception Class"""
+
     message = ""
 
     def __init__(self, msg):
@@ -36,6 +38,7 @@ class RollError(Exception):
     def getMessage(self):
         """return this exception's message"""
         return self.message
+
 
 def parse_dice(dicestr: str):
     """Parses the dice string and returns a dictionary of dieSize->count"""
@@ -68,6 +71,7 @@ def parse_dice(dicestr: str):
 
     return dicecounts
 
+
 def roll_dice(dicecounts, cheat=False):
     """Returns a dictionary of dieSize => rolls[]"""
     dicerolls = {
@@ -80,27 +84,26 @@ def roll_dice(dicecounts, cheat=False):
     }
 
     try:
-        for (size,num) in dicecounts.items():
+        for size, num in dicecounts.items():
             if num > 0:
                 # pylint: disable=unused-variable
                 if cheat:
-                    dicerolls[size] = [size for idx in range(0,num)]
+                    dicerolls[size] = [size for idx in range(0, num)]
                 else:
-                    dicerolls[size] = [random.randint(1,size) for idx in range(0,num)]
+                    dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
     return dicerolls
 
+
 def print_dice(dicerolls):
     "Creates a string rep of the rolled dice"
     answer = "Dice: "
     try:
-        for (size,values) in dicerolls.items():
+        for size, values in dicerolls.items():
             if len(values) > 0:
-                answer += (
-                    f"{len(values)}d{size}{ str(values)} "
-                )
+                answer += f"{len(values)}d{size}{ str(values)} "
         answer += "\n"
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
@@ -133,6 +136,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
 
     return answer
 
+
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
 
@@ -156,12 +160,12 @@ def mvkroll(dicestr: str):
     # advantage and disadvantage need _at least_ 2d20
     # everything else only gets 1d20
     if advantage or disadvantage:
-       if dicecounts[20] < 2:
-         dicecounts[20] = 2
-         answer += "_Setting 2d20 for advantage/disadvantage_\n"
+        if dicecounts[20] < 2:
+            dicecounts[20] = 2
+            answer += "_Setting 2d20 for advantage/disadvantage_\n"
     elif dicecounts[20] > 1 or dicecounts[20] == 0:
-       dicecounts[20] = 1
-       answer += "_No advantage/disadvantage, setting 1d20_\n"
+        dicecounts[20] = 1
+        answer += "_No advantage/disadvantage, setting 1d20_\n"
 
     dicerolls = roll_dice(dicecounts, cheat)
 
@@ -172,13 +176,13 @@ def mvkroll(dicestr: str):
 
     # dice d4-d12 are called "Character Dice"
     # Grab all the values from all the rolls that weren't d20s
-    characterdicerolls = [val
-                          for (key,rollset) in dicerolls.items() if key != 20
-                          for val in rollset]
+    characterdicerolls = [
+        val for (key, rollset) in dicerolls.items() if key != 20 for val in rollset
+    ]
     characterdicerolls.sort(reverse=True)
     logger.debug("character rolls %s", characterdicerolls)
 
-    if len(characterdicerolls)+len(fortunedicerolls) < 1 :
+    if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
 
     answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
@@ -190,7 +194,9 @@ def mvkroll(dicestr: str):
         action_dice = fortunedicerolls[:1] + characterdicerolls[:1]
         answer += f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
     except Exception as exc:
-        raise RollError("Coding error flattening dice rolls and creating total.") from exc
+        raise RollError(
+            "Coding error flattening dice rolls and creating total."
+        ) from exc
 
     try:
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
@@ -200,7 +206,9 @@ def mvkroll(dicestr: str):
         impact = fortuneimpact + doublecharacterimpact + characterimpact
         impact = max(impact, 1)
         answer += f"**Impact: {impact}** "
-        answer += f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        answer += (
+            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        )
     except Exception as exc:
         raise RollError("Coding error calculating Impact") from exc
 
@@ -208,6 +216,7 @@ def mvkroll(dicestr: str):
         answer = "\n# Cheating" + answer + "\n# Cheating"
 
     return answer
+
 
 def plainroll(dicestr: str):
     """Implementation of dice roller that just rolls some dice for you."""
