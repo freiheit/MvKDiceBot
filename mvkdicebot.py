@@ -68,7 +68,24 @@ async def roll(ctx, *, dicestr: str):
         await ctx.reply(exc.getMessage())
         raise
 
+@bot.hybrid_command(aliases=["p", "P", "pr", "PR", "justroll", "justdice", "plain"])  # pylint: disable=no-member
+async def plainroll(ctx, *, dicestr: str):
+    """Rolls a pool of dice in NdN format.
+    Example: '?roll 1d20 2d10 d8 2d6'
 
+    Add 'advantage' to discard lowest d20.
+    Add 'disadvantage' to discard highest d20.
+    Example: '?roll 2d20 2d10 advantage'
+    Example: '?roll 2d20 2d10 disadvantage'
+
+    Ignores anything extra it doesn't understand.
+    """
+    try:
+        response = mvkroller.plainroll(dicestr)
+        await ctx.reply(response)
+    except mvkroller.RollError as exc:
+        await ctx.reply(exc.getMessage())
+        raise
 
 class ImproperlyConfigured(Exception):
     """Boring Exception Class"""

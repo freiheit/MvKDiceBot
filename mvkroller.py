@@ -218,3 +218,18 @@ def mvkroll(dicestr: str):
         answer = "\n# Cheating" + answer + "\n# Cheating"
 
     return answer
+
+def plainroll(dicestr: str):
+    """Implementation of dice roller that just rolls some dice for you."""
+
+    logger.debug("Roll %s", {dicestr})
+
+    answer = ""
+    cheat = False
+
+    dicecounts = parse_dice(dicestr)
+    dicerolls = roll_dice(dicecounts, cheat)
+
+    answer += print_dice(dicerolls)
+
+    return answer
