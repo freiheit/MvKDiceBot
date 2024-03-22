@@ -193,7 +193,9 @@ def mvkroll(dicestr: str):
 
     # Compute the action total, using up to one d20 and the highest character die roll.
     try:
-        action_dice = fortunedicerolls[:1] + characterdicerolls[:1]
+        action_dice = fortunedicerolls + characterdicerolls
+        action_dice.sort(reverse=True)
+        action_dice = action_dice[:2]
         answer += f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
     except Exception as exc:
         raise RollError(
