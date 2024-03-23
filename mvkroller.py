@@ -190,6 +190,10 @@ def mvkroll(dicestr: str):
     answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
 
     answer += print_dice(dicerolls)
+    
+    if dicerolls[20][0] == 1:
+        answer += "**Critical Fumble**\n"
+        answer += "*Scratch a die that didn't roll 1, and gain 1 inspiration point*\n"
 
     # Compute the action total, using up to one d20 and the highest character die roll.
     try:
