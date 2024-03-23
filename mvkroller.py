@@ -187,7 +187,9 @@ def mvkroll(dicestr: str):
     if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
 
-    adv_disadv_answer, fortunedicerolls = adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
+    adv_disadv_answer, fortunedicerolls = adv_disadv(
+        advantage, disadvantage, dicecounts, dicerolls
+    )
     answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
