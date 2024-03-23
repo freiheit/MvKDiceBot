@@ -136,8 +136,37 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     except Exception as exc:
         raise RollError("Coding error calculating advantage or disadvantage.") from exc
 
+    return answer, dicerolls[20]
+
+def calc_action(fortunedicerolls, characterdicerolls):
+    """Compute the action total, using up to one d20 and the highest character die roll."""
+    try:
+        action_dice = fortunedicerolls + characterdicerolls
+        action_dice.sort(reverse=True)
+        action_dice = action_dice[:2]
+        answer = f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
+    except Exception as exc:
+        raise RollError(
+            "Coding error flattening dice rolls and creating total."
+        ) from exc
     return answer
 
+def calc_impact(fortunedicerolls, characterdicerolls):
+    """Calculate the impact total"""
+    try:
+        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
+        fortuneimpact = 1 if fortunedicerolls[0] >= 4 else 0
+        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
+        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
+        impact = fortuneimpact + doublecharacterimpact + characterimpact
+        impact = max(impact, 1)
+        answer = f"**Impact: {impact}** "
+        answer += (
+            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        )
+    except Exception as exc:
+        raise RollError("Coding error calculating Impact") from exc
+    return answer
 
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
@@ -187,7 +216,10 @@ def mvkroll(dicestr: str):
     if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
 
-    answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
+    adv_disadv_answer, fortunedicerolls = adv_disadv(
+        advantage, disadvantage, dicecounts, dicerolls
+    )
+    answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
     
@@ -195,30 +227,9 @@ def mvkroll(dicestr: str):
         answer += "**Critical Fumble**\n"
         answer += "*Scratch a die that didn't roll 1, and gain 1 inspiration point*\n"
 
-    # Compute the action total, using up to one d20 and the highest character die roll.
-    try:
-        action_dice = fortunedicerolls + characterdicerolls
-        action_dice.sort(reverse=True)
-        action_dice = action_dice[:2]
-        answer += f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
-    except Exception as exc:
-        raise RollError(
-            "Coding error flattening dice rolls and creating total."
-        ) from exc
+    answer += calc_action(fortunedicerolls, characterdicerolls)
 
-    try:
-        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-        fortuneimpact = 1 if fortunedicerolls[0] >= 4 else 0
-        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
-        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
-        impact = fortuneimpact + doublecharacterimpact + characterimpact
-        impact = max(impact, 1)
-        answer += f"**Impact: {impact}** "
-        answer += (
-            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-        )
-    except Exception as exc:
-        raise RollError("Coding error calculating Impact") from exc
+    answer += calc_impact(fortunedicerolls, characterdicerolls)
 
     if cheat:
         answer = "\n# Cheating #\n" + answer + "\n# Cheater #\n"
