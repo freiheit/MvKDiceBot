@@ -222,6 +222,10 @@ def mvkroll(dicestr: str):
     answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
+    
+    if dicerolls[20][0] == 1:
+        answer += "**Critical Fumble**\n"
+        answer += "*Scratch a die that didn't roll 1, and gain 1 inspiration point*\n"
 
     answer += calc_action(fortunedicerolls, characterdicerolls)
 
