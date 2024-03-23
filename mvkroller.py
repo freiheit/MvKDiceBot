@@ -136,7 +136,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     except Exception as exc:
         raise RollError("Coding error calculating advantage or disadvantage.") from exc
 
-    return answer
+    return answer, dicerolls[20]
 
 
 def mvkroll(dicestr: str):
@@ -187,7 +187,8 @@ def mvkroll(dicestr: str):
     if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
 
-    answer += adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
+    adv_disadv_answer, fortunedicerolls = adv_disadv(advantage, disadvantage, dicecounts, dicerolls)
+    answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
 
