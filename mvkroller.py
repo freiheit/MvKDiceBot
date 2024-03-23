@@ -217,7 +217,7 @@ def mvkroll(dicestr: str):
         raise RollError("Coding error calculating Impact") from exc
 
     if cheat:
-        answer = "\n# Cheating" + answer + "\n# Cheating"
+        answer = "\n# Cheating #\n" + answer + "\n# Cheater #\n"
 
     return answer
 
