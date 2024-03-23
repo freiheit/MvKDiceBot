@@ -168,6 +168,29 @@ def calc_impact(fortunedicerolls, characterdicerolls):
         raise RollError("Coding error calculating Impact") from exc
     return answer
 
+def crit_fumble(fortunedicerolls, characterdicerolls):
+    """Check if we had a critical fumble. If so, add output and discard lowest non-1 die"""
+    answer = ""
+    newdicerolls = characterdicerolls
+    if fortunedicerolls[0] == 1:
+        answer += "**Critical Fumble**\n"
+        characterdicerolls.sort()
+        newdicerolls = []
+        scratched = False
+        for i in characterdicerolls:
+            if scratched:
+                newdicerolls.append(i)
+            elif i == 1:
+                newdicerolls.append(i)
+            else:
+                scratched = True
+                answer += f"*Scratched {i}*\n"
+                # no append because scratching this die
+            
+        answer += "**Gain 1 inspiration point**\n"
+        answer += f"New character dice: {newdicerolls}\n"
+    return answer, newdicerolls
+
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
 
@@ -223,9 +246,8 @@ def mvkroll(dicestr: str):
 
     answer += print_dice(dicerolls)
     
-    if dicerolls[20][0] == 1:
-        answer += "**Critical Fumble**\n"
-        answer += "*Scratch a die that didn't roll 1, and gain 1 inspiration point*\n"
+    fumble_answer, characterdicerolls = crit_fumble(fortunedicerolls, characterdicerolls)
+    answer += fumble_answer
 
     answer += calc_action(fortunedicerolls, characterdicerolls)
 
