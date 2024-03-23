@@ -138,6 +138,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
 
     return answer, dicerolls[20]
 
+
 def calc_action(fortunedicerolls, characterdicerolls):
     """Compute the action total, using up to one d20 and the highest character die roll."""
     try:
@@ -150,6 +151,7 @@ def calc_action(fortunedicerolls, characterdicerolls):
             "Coding error flattening dice rolls and creating total."
         ) from exc
     return answer
+
 
 def calc_impact(fortunedicerolls, characterdicerolls):
     """Calculate the impact total"""
@@ -167,6 +169,7 @@ def calc_impact(fortunedicerolls, characterdicerolls):
     except Exception as exc:
         raise RollError("Coding error calculating Impact") from exc
     return answer
+
 
 def crit_fumble(fortunedicerolls, characterdicerolls):
     """Check if we had a critical fumble. If so, add output and discard lowest non-1 die"""
@@ -186,10 +189,11 @@ def crit_fumble(fortunedicerolls, characterdicerolls):
                 scratched = True
                 answer += f"*Scratched {i}*\n"
                 # no append because scratching this die
-            
+
         answer += "**Gain 1 inspiration point**\n"
         answer += f"New character dice: {newdicerolls}\n"
     return answer, newdicerolls
+
 
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
@@ -245,8 +249,10 @@ def mvkroll(dicestr: str):
     answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
-    
-    fumble_answer, characterdicerolls = crit_fumble(fortunedicerolls, characterdicerolls)
+
+    fumble_answer, characterdicerolls = crit_fumble(
+        fortunedicerolls, characterdicerolls
+    )
     answer += fumble_answer
 
     answer += calc_action(fortunedicerolls, characterdicerolls)
