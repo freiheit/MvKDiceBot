@@ -74,7 +74,7 @@ def parse_dice(dicestr: str):
     return dicecounts
 
 
-def roll_dice(dicecounts):
+def roll_dice(dicecounts, rand_source=None):
     """Returns a dictionary of dieSize => rolls[]"""
     dicerolls = {
         20: [],
@@ -85,10 +85,16 @@ def roll_dice(dicecounts):
         4: [],
     }
 
+    def rollit(size, src):
+        return int(src.random() * size) + 1
+
     try:
+        if rand_source is None:
+            rand_source = random.Random()
+
         for size, num in dicecounts.items():
             if num > 0:
-                dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
+                dicerolls[size] = [rollit(size, rand_source) for idx in range(0, num)]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 

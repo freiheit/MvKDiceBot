@@ -18,6 +18,7 @@
 # https://github.com/freiheit/MvKDiceBot
 """Test module for MvKDiceBot"""
 
+import random
 import unittest
 import mvkroller as roller
 
@@ -29,10 +30,9 @@ class TestRoller(unittest.TestCase):
         msg = "this is a message"
         try:
             raise roller.RollError(msg)
-            self.fail()
         except roller.RollError as rex:
             self.assertEqual(rex.getMessage(), msg)
-    
+
     def test_parser_good(self):
         """Test the parser with valid strings, including some that produce no dice."""
         strings = {
@@ -71,14 +71,36 @@ class TestRoller(unittest.TestCase):
             [False, True, {20:1, 10:1, 6:2}, {20:[3], 10:[1], 6:[7,8]}, [3]],
         ]
         for (adv, dadv, dcount, droll, exp_fortune) in data:
-            answer, fortune = roller.adv_disadv(adv, dadv, dcount, droll)
-            self.assertEqual(fortune, exp_fortune)
-            self.assertIsNotNone(answer)
+            with self.subTest():
+                answer, fortune = roller.adv_disadv(adv, dadv, dcount, droll)
+                self.assertEqual(fortune, exp_fortune)
+                self.assertIsNotNone(answer)
 
     def test_addadv_bad(self):
         """Force adv_disadv to fail because of bad data. Ensure RollError is raised."""
         with self.assertRaises(roller.RollError):
             roller.adv_disadv(True, False, {20:2}, {20:"not an array"})
 
+    def test_roll_dice(self):
+        """Check the dice roller!"""
+        dataset = [
+            [{}, {20:[], 12:[], 10:[], 8:[], 6:[], 4:[]}],
+            [{20:2, 6:5}, {20:[9,5], 12:[], 10:[], 8:[], 6:[2,2,5,2,3], 4:[]}],
+            [{20:1, 12:1, 10:1, 8:1, 6:1, 4:1}, {20:[9], 12:[3], 10:[2], 8:[2], 6:[5], 4:[2]}],
+        ]
+        for (dcount, result) in dataset:
+            with self.subTest():
+                rsource = random.Random(99)
+                self.assertEqual(roller.roll_dice(dcount, rsource), result)
+
+        # Same as dataset[0], but without the explicit random source
+        # Only check that we got a value. We don't care what the value was.
+        the_rolls = roller.roll_dice({20:1})
+        self.assertGreater(len(the_rolls[20]), 0)
+
+    def test_roll_dice_exc(self):
+        with self.assertRaises(roller.RollError):
+            roller.roll_dice({20:"nope!"})
+    
 if __name__ == "__main__":
     unittest.main()
