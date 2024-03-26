@@ -24,6 +24,15 @@ import mvkroller as roller
 class TestRoller(unittest.TestCase):
     """Test cases for the mvkroller functions."""
 
+    def test_roller_exception(self):
+        """Ensure RollError exceptions carry messages properly"""
+        msg = "this is a message"
+        try:
+            raise roller.RollError(msg)
+            self.fail()
+        except roller.RollError as rex:
+            self.assertEqual(rex.getMessage(), msg)
+    
     def test_parser_good(self):
         """Test the parser with valid strings, including some that produce no dice."""
         strings = {
@@ -49,6 +58,26 @@ class TestRoller(unittest.TestCase):
         for dstring in strings:
             with self.subTest(dstring=dstring), self.assertRaises(roller.RollError):
                 roller.parse_dice(dstring)
+
+    def test_addadv_good(self):
+        """Check behavior of adv_disadv() when given good data."""
+        data = [
+            [True, False, {20:2, 10:1, 6:2}, {20:[12,7], 10:[1], 6:[7,8]}, [12]],
+            [False, True, {20:2, 10:1, 6:2}, {20:[12,7], 10:[1], 6:[7,8]}, [7]],
+            [False, False, {20:2, 10:1, 6:2}, {20:[12,7], 10:[1], 6:[7,8]}, [12, 7]],
+            [True, False, {20:0, 10:1, 6:2}, {20:[], 10:[1], 6:[7,8]}, []],
+            [True, False, {20:1, 10:1, 6:2}, {20:[3], 10:[1], 6:[7,8]}, [3]],
+            [False, True, {20:1, 10:1, 6:2}, {20:[3], 10:[1], 6:[7,8]}, [3]],
+        ]
+        for (adv, dadv, dcount, droll, exp_fortune) in data:
+            answer, fortune = roller.adv_disadv(adv, dadv, dcount, droll)
+            self.assertEqual(fortune, exp_fortune)
+            self.assertIsNotNone(answer)
+
+    def test_addadv_bad(self):
+        """Force adv_disadv to fail because of bad data. Ensure RollError is raised."""
+        with self.assertRaises(roller.RollError):
+            roller.adv_disadv(True, False, {20:2}, {20:"not an array"})
 
 if __name__ == "__main__":
     unittest.main()

@@ -119,7 +119,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     fortunedicerolls = dicerolls[20]
 
     try:
-        if advantage or disadvantage:
+        if (advantage or disadvantage) and len(fortunedicerolls):
             logger.debug("Dicecounts %s", dicecounts)
             logger.debug("Dicerolls %s", dicerolls)
             answer += "Original d20s: "
