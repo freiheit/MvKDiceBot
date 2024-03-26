@@ -74,7 +74,7 @@ def parse_dice(dicestr: str):
     return dicecounts
 
 
-def roll_dice(dicecounts, cheat=False):
+def roll_dice(dicecounts):
     """Returns a dictionary of dieSize => rolls[]"""
     dicerolls = {
         20: [],
@@ -88,11 +88,7 @@ def roll_dice(dicecounts, cheat=False):
     try:
         for size, num in dicecounts.items():
             if num > 0:
-                # pylint: disable=unused-variable
-                if cheat:
-                    dicerolls[size] = [size for idx in range(0, num)]
-                else:
-                    dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
+                dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
@@ -201,7 +197,6 @@ def mvkroll(dicestr: str):
     logger.debug("Roll %s", {dicestr})
 
     answer = ""
-    cheat = False
     advantage = False
     disadvantage = False
 
@@ -209,9 +204,6 @@ def mvkroll(dicestr: str):
         disadvantage = True
     elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
         advantage = True
-
-    if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
-        cheat = True
 
     dicecounts = parse_dice(dicestr)
 
@@ -225,7 +217,7 @@ def mvkroll(dicestr: str):
         dicecounts[20] = 1
         answer += "_No advantage/disadvantage, setting 1d20_\n"
 
-    dicerolls = roll_dice(dicecounts, cheat)
+    dicerolls = roll_dice(dicecounts)
 
     # the d20 is called the "Fortune Die"
     fortunedicerolls = dicerolls[20]
@@ -259,9 +251,6 @@ def mvkroll(dicestr: str):
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 
-    if cheat:
-        answer = "\n# Cheating #\n" + answer + "\n# Cheater #\n"
-
     return answer
 
 
@@ -271,10 +260,9 @@ def plainroll(dicestr: str):
     logger.debug("Roll %s", {dicestr})
 
     answer = ""
-    cheat = False
 
     dicecounts = parse_dice(dicestr)
-    dicerolls = roll_dice(dicecounts, cheat)
+    dicerolls = roll_dice(dicecounts)
 
     answer += print_dice(dicerolls)
 
