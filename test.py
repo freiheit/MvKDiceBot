@@ -99,8 +99,15 @@ class TestRoller(unittest.TestCase):
         self.assertGreater(len(the_rolls[20]), 0)
 
     def test_roll_dice_exc(self):
-        with self.assertRaises(roller.RollError):
-            roller.roll_dice({20:"nope!"})
-    
+        """Test attempts to roll dice with a bad dice count."""
+        dataset = [
+            {20:"nope!"},
+            {"8":1},
+            {8:12, "umbridge":"sucks"},
+        ]
+        for dcount in dataset:
+            with self.subTest(dice_count=dcount), self.assertRaises(roller.RollError):
+                roller.roll_dice(dcount)
+
 if __name__ == "__main__":
     unittest.main()
