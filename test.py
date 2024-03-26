@@ -109,5 +109,54 @@ class TestRoller(unittest.TestCase):
             with self.subTest(dice_count=dcount), self.assertRaises(roller.RollError):
                 roller.roll_dice(dcount)
 
+    def test_print_dice(self):
+        """Print some valid die rolls."""
+        dataset = [
+            [{}, "Dice: \n"],
+            [{20:[5,12]}, "Dice: 2d20[5, 12] \n"],
+            [{20:[], 12:[1,12], 8:[1,2,3,4], 4:[3,2]},
+             "Dice: 2d12[1, 12] 4d8[1, 2, 3, 4] 2d4[3, 2] \n"
+            ],
+        ]
+        for (rolls, result) in dataset:
+            with self.subTest(rolls=rolls):
+                self.assertEqual(roller.print_dice(rolls), result)
+
+    def test_print_dice_exc(self):
+        """print_dice can raise exceptions when the input is not a dictionary."""
+        dataset = [
+            [20, 1],
+            "nobody",
+            99,
+        ]
+        for bad_roll in dataset:
+            with self.subTest(bad_roll=bad_roll), self.assertRaises(roller.RollError):
+                roller.print_dice(bad_roll)
+
+    def test_calc_action(self):
+        """Ensure actions are tallied properly."""
+        dataset = [
+            [[1, 20], [2, 4, 6, 8], "**Action Total: 28** [20, 8]\n"],
+            [[20, 1], [8, 6, 4, 2], "**Action Total: 28** [20, 8]\n"],
+            [[11, 13, 5], [8, 6, 4, 2], "**Action Total: 21** [13, 8]\n"],
+            [[6, 7, 8], [9, 10, 11, 12], "**Action Total: 23** [12, 11]\n"],
+        ]
+        for (fdice, cdice, answer) in dataset:
+            with self.subTest(dice=[fdice, cdice]):
+                self.assertEqual(roller.calc_action(fdice, cdice), answer)
+
+    def test_calc_actions_exc(self):
+        """Give calc_actions() some bad data"""
+        dataset = [
+            [None, None],
+            ["boopsie", "whoopsie"],
+            [12, 99],
+            [[1, 2], "grrrrr"],
+            ["grrrr", [1, 2]],
+        ]
+        for (fdice, cdice) in dataset:
+            with self.subTest(dice=[fdice, cdice]), self.assertRaises(roller.RollError):
+                roller.calc_action(fdice, cdice)
+
 if __name__ == "__main__":
     unittest.main()
