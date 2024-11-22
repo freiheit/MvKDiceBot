@@ -2,9 +2,9 @@
 These dice are called character dice, because they reflect things about your character that can help you succeed. 
 A d20 is known as a fortune die, and it transcends these benchmarks.
 
-_Fortune die: a d20 always included. Can be 2 d20s with advantage or disadvantage._
-_Character dice: Technically this means the drives, style, values, etc... But within a given roll there's no distinction between character dice and any other dice that can be added. These are d4, d6, d8, d10 or d12._
-_Every roll has 1 d20. Rolls with advantage or disadvantage roll 2 d20s but only keep the result of 1 d20_
+- _Fortune die: a d20 always included. Can be 2 d20s with advantage or disadvantage._
+- _Character dice: Technically this means the drives, style, values, etc... But within a given roll there's no distinction between character dice and any other dice that can be added. These are d4, d6, d8, d10 or d12._
+- _Every roll has 1 d20. Rolls with advantage or disadvantage roll 2 d20s but only keep the result of 1 d20_
 
 # Critical Successes
 When you roll a 20 on the fortune die and your action succeeds, it is considered a critical success.
@@ -21,17 +21,16 @@ You may roll a critical fumble and still succeed in your action.
 You also critically fumble if your action is successfully countered and you roll a 1-3 on the d20 (in other words if you fail to generate any impact at all).
 Whenever you roll a critical fumble, you gain 1 inspiration point. 
 
-_Bot calls out a 1 as a critical fumble and automatically scratches the lowest non-1 die._
-_TODO: Bot should mention that a 1-3 is also a critical fumble if action is countered._
+- _Bot calls out a 1 as a critical fumble and automatically scratches the lowest non-1 die._
+- _TODO: Bot should mention that a 1-3 is also a critical fumble if action is countered._
 
 # Success or Failure
 To figure out whether your action succeeds, compare your action total to the opposing counter total. 
 If the counter total is higher, you fail; otherwise, your action succeeds. 
 **An unsuccessful action cannot inflict stress.**
 
-_Bot doesn't really do anything with this. Doesn't differentiate action vs counter._
-
-_Bot *does* add up the Action total and display that. Easy for users to compare rolls since action total is simple integer._
+- _Bot doesn't really do anything with this. Doesn't differentiate action vs counter._
+- _Bot *does* add up the Action total and display that. Easy for users to compare rolls since action total is simple integer._
 
 # Impact
 Once you calculate your action total, determine your action’s Impact – the effect your action has on the scene. 
@@ -39,7 +38,7 @@ Look at the dice you rolled in your pool. Each die that rolls a 4 or higher gene
 This includes the dice you added for your action total, as well as the fortune die. 
 Character dice that roll 10 or higher generate two impact.
 
-_Bot adds this up and displays it after the Action total_
+- _Bot adds this up and displays it after the Action total_
 
 ## Minimum Impact: 
 Your character is highly capable. 
@@ -47,7 +46,7 @@ Even if their action is countered, they are still able to accomplish something p
 So long as you roll a 4 or higher on your fortune die you still generate a minimum impact of 1. 
 You may spend this on any result except causing stress.  
 
-_TODO: Maybe include note about minimum impact whenever fortune die is >=4?_
+- _TODO: Maybe include note about minimum impact whenever fortune die is >=4?_
 
 # Advantage and Disadvantage
 Sometimes the rules grant you Advantage on a particular roll. 
