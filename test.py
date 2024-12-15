@@ -21,22 +21,30 @@
 import unittest
 import mvkroller as roller
 
+
 class TestRoller(unittest.TestCase):
     """Test cases for the mvkroller functions."""
 
     def test_parser_good(self):
         """Test the parser with valid strings, including some that produce no dice."""
         strings = {
-            "": {20:0, 12:0, 10:0, 8:0, 6:0, 4:0},
-            "there are no matching dice strings here": {20:0, 12:0, 10:0, 8:0, 6:0, 4:0},
-            "messyd20what?": {20:1, 12:0, 10:0, 8:0, 6:0, 4:0},
-            "d20 3d6 5d10": {20:1, 12:0, 10:5, 8:0, 6:3, 4:0},
-            "d20 d6 d6 d6 4d10 d10": {20:1, 12:0, 10:5, 8:0, 6:3, 4:0},
-            "4d12 1d10 2d4": {20:0, 12:4, 10:1, 8:0, 6:0, 4:2},
-            " d4 d6 d8 d12 ": {20:0, 12:1, 10:0, 8:1, 6:1, 4:1},
-            "1024d20, 500d4": {20:1024, 12:0, 10:0, 8:0, 6:0, 4:500},
+            "": {20: 0, 12: 0, 10: 0, 8: 0, 6: 0, 4: 0},
+            "there are no matching dice strings here": {
+                20: 0,
+                12: 0,
+                10: 0,
+                8: 0,
+                6: 0,
+                4: 0,
+            },
+            "messyd20what?": {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 0},
+            "d20 3d6 5d10": {20: 1, 12: 0, 10: 5, 8: 0, 6: 3, 4: 0},
+            "d20 d6 d6 d6 4d10 d10": {20: 1, 12: 0, 10: 5, 8: 0, 6: 3, 4: 0},
+            "4d12 1d10 2d4": {20: 0, 12: 4, 10: 1, 8: 0, 6: 0, 4: 2},
+            " d4 d6 d8 d12 ": {20: 0, 12: 1, 10: 0, 8: 1, 6: 1, 4: 1},
+            "1024d20, 500d4": {20: 1024, 12: 0, 10: 0, 8: 0, 6: 0, 4: 500},
         }
-        for (dstring, dspec) in strings.items():
+        for dstring, dspec in strings.items():
             with self.subTest(dstring=dstring):
                 self.assertEqual(roller.parse_dice(dstring), dspec)
 
@@ -50,6 +58,7 @@ class TestRoller(unittest.TestCase):
         for dstring in strings:
             with self.subTest(dstring=dstring), self.assertRaises(roller.RollError):
                 roller.parse_dice(dstring)
+
 
 if __name__ == "__main__":
     unittest.main()
