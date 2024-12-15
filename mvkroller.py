@@ -190,6 +190,13 @@ def crit_fumble(fortunedicerolls, characterdicerolls):
         answer += f"New character dice: {newdicerolls}\n"
     return answer, newdicerolls
 
+def possible_fumble(fortunedicerolls):
+    """You also critically fumble if your action is successfully countered and you roll a 1-3 on the d20"""
+    answer = ""
+    if fortunedicerolls[0] <=3:
+        answer += "**Possible Critical Fumble**\n"
+        answer += "If your action is successfully countered, gain 1 inspiration point.\n"
+    return answer
 
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
@@ -242,11 +249,16 @@ def mvkroll(dicestr: str):
 
     answer += print_dice(dicerolls)
 
+    possible_fumble_answer = possible_fumble(fortunedicerolls)
+
     fumble_answer, characterdicerolls = crit_fumble(
         fortunedicerolls, characterdicerolls
     )
-    answer += fumble_answer
-
+    if fumble_answer:
+        answer += fumble_answer
+    elif possible_fumble_answer:
+        answer += possible_fumble_answer
+    
     answer += calc_action(fortunedicerolls, characterdicerolls)
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)

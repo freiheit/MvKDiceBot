@@ -22,7 +22,7 @@ You also critically fumble if your action is successfully countered and you roll
 Whenever you roll a critical fumble, you gain 1 inspiration point. 
 
 - _Bot calls out a 1 as a critical fumble and automatically scratches the lowest non-1 die._
-- _TODO: Bot should mention that a 1-3 is also a critical fumble if action is countered._
+- _Bot mentions that a 1-3 is possibly a critical fumble if action is countered._
 
 # Success or Failure
 To figure out whether your action succeeds, compare your action total to the opposing counter total. 
