@@ -92,7 +92,7 @@ def roll_dice(dicecounts, cheat=False):
                 if cheat:
                     dicerolls[size] = [size for idx in range(0, num)]
                 else:
-                    dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
+                    dicerolls[size] = [random.SystemRandom().randint(1, size) for idx in range(0, num)]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
