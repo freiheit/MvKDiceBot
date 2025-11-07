@@ -190,13 +190,17 @@ def crit_fumble(fortunedicerolls, characterdicerolls):
         answer += f"New character dice: {newdicerolls}\n"
     return answer, newdicerolls
 
+
 def possible_fumble(fortunedicerolls):
     """You also critically fumble if your action is successfully countered and you roll a 1-3 on the d20"""
     answer = ""
-    if fortunedicerolls[0] <=3:
+    if fortunedicerolls[0] <= 3:
         answer += "**Possible Critical Fumble**\n"
-        answer += "If your action is successfully countered, gain 1 inspiration point.\n"
+        answer += (
+            "If your action is successfully countered, gain 1 inspiration point.\n"
+        )
     return answer
+
 
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
@@ -258,24 +262,26 @@ def mvkroll(dicestr: str):
         answer += fumble_answer
     elif possible_fumble_answer:
         answer += possible_fumble_answer
-    
+
     answer += calc_action(fortunedicerolls, characterdicerolls)
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 
     return answer
 
+
 def parse_math(dicestr: str):
     """Look for +N and -N things to get a total change"""
-    
+
     pattern_math = re.compile(r"([+-][0-9]+)")
 
     amount = 0
 
     for addstr in re.findall(pattern_math, dicestr):
         amount += int(addstr)
-    
+
     return amount
+
 
 def plainroll(dicestr: str):
     """Implementation of dice roller that just rolls some dice for you."""
@@ -291,11 +297,11 @@ def plainroll(dicestr: str):
     dicerolls = roll_dice(dicecounts)
 
     answer += print_dice(dicerolls)
-    answer += 'Adjustment: {:+d}\n'.format(add_amount)
+    answer += "Adjustment: {:+d}\n".format(add_amount)
     total = 0
     total += add_amount
     for size, values in dicerolls.items():
-       total += sum(values)
+        total += sum(values)
 
     answer += f"**Total: {total}**"
 
