@@ -28,3 +28,5 @@ https://discord.com/api/oauth2/authorize?client_id=1168083075515826186&permissio
 10. Use the OAuth2 URL to authorize the bot to talk to your server.
 
 You should be able to run the bot with `./run.sh`
+
+You can test the dice parsing and rolling code with `python test.py`

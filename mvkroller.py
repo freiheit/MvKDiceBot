@@ -74,7 +74,7 @@ def parse_dice(dicestr: str):
     return dicecounts
 
 
-def roll_dice(dicecounts, cheat=False):
+def roll_dice(dicecounts):
     """Returns a dictionary of dieSize => rolls[]"""
     dicerolls = {
         20: [],
@@ -88,11 +88,7 @@ def roll_dice(dicecounts, cheat=False):
     try:
         for size, num in dicecounts.items():
             if num > 0:
-                # pylint: disable=unused-variable
-                if cheat:
-                    dicerolls[size] = [size for idx in range(0, num)]
-                else:
-                    dicerolls[size] = [random.SystemRandom().randint(1, size) for idx in range(0, num)]
+                dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
@@ -195,13 +191,23 @@ def crit_fumble(fortunedicerolls, characterdicerolls):
     return answer, newdicerolls
 
 
+def possible_fumble(fortunedicerolls):
+    """You also critically fumble if your action is successfully countered and you roll a 1-3 on the d20"""
+    answer = ""
+    if fortunedicerolls[0] <= 3:
+        answer += "**Possible Critical Fumble**\n"
+        answer += (
+            "If your action is successfully countered, gain 1 inspiration point.\n"
+        )
+    return answer
+
+
 def mvkroll(dicestr: str):
     """Implementation of dice roller that applies MvK rules."""
 
     logger.debug("Roll %s", {dicestr})
 
     answer = ""
-    cheat = False
     advantage = False
     disadvantage = False
 
@@ -209,9 +215,6 @@ def mvkroll(dicestr: str):
         disadvantage = True
     elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
         advantage = True
-
-    if re.search(r"cheat", dicestr, flags=re.IGNORECASE):
-        cheat = True
 
     dicecounts = parse_dice(dicestr)
 
@@ -225,7 +228,7 @@ def mvkroll(dicestr: str):
         dicecounts[20] = 1
         answer += "_No advantage/disadvantage, setting 1d20_\n"
 
-    dicerolls = roll_dice(dicecounts, cheat)
+    dicerolls = roll_dice(dicecounts)
 
     # the d20 is called the "Fortune Die"
     fortunedicerolls = dicerolls[20]
@@ -250,19 +253,34 @@ def mvkroll(dicestr: str):
 
     answer += print_dice(dicerolls)
 
+    possible_fumble_answer = possible_fumble(fortunedicerolls)
+
     fumble_answer, characterdicerolls = crit_fumble(
         fortunedicerolls, characterdicerolls
     )
-    answer += fumble_answer
+    if fumble_answer:
+        answer += fumble_answer
+    elif possible_fumble_answer:
+        answer += possible_fumble_answer
 
     answer += calc_action(fortunedicerolls, characterdicerolls)
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 
-    if cheat:
-        answer = "\n# Cheating #\n" + answer + "\n# Cheater #\n"
-
     return answer
+
+
+def parse_math(dicestr: str):
+    """Look for +N and -N things to get a total change"""
+
+    pattern_math = re.compile(r"([+-][0-9]+)")
+
+    amount = 0
+
+    for addstr in re.findall(pattern_math, dicestr):
+        amount += int(addstr)
+
+    return amount
 
 
 def plainroll(dicestr: str):
@@ -271,11 +289,20 @@ def plainroll(dicestr: str):
     logger.debug("Roll %s", {dicestr})
 
     answer = ""
-    cheat = False
+
+    add_amount = parse_math(dicestr)
+    logger.debug("add_amount %s", {add_amount})
 
     dicecounts = parse_dice(dicestr)
-    dicerolls = roll_dice(dicecounts, cheat)
+    dicerolls = roll_dice(dicecounts)
 
     answer += print_dice(dicerolls)
+    answer += "Adjustment: {:+d}\n".format(add_amount)
+    total = 0
+    total += add_amount
+    for size, values in dicerolls.items():
+        total += sum(values)
+
+    answer += f"**Total: {total}**"
 
     return answer
