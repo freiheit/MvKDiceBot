@@ -265,6 +265,17 @@ def mvkroll(dicestr: str):
 
     return answer
 
+def parse_math(dicestr: str):
+    """Look for +N and -N things to get a total change"""
+    
+    pattern_math = re.compile(r"([+-][0-9]+)")
+
+    amount = 0
+
+    for addstr in re.findall(pattern_math, dicestr):
+        amount += int(addstr)
+    
+    return amount
 
 def plainroll(dicestr: str):
     """Implementation of dice roller that just rolls some dice for you."""
@@ -273,9 +284,19 @@ def plainroll(dicestr: str):
 
     answer = ""
 
+    add_amount = parse_math(dicestr)
+    logger.debug("add_amount %s", {add_amount})
+
     dicecounts = parse_dice(dicestr)
     dicerolls = roll_dice(dicecounts)
 
     answer += print_dice(dicerolls)
+    answer += 'Adjustment: {:+d}\n'.format(add_amount)
+    total = 0
+    total += add_amount
+    for size, values in dicerolls.items():
+       total += sum(values)
+
+    answer += f"**Total: {total}**"
 
     return answer

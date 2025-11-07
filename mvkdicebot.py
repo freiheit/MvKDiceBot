@@ -78,7 +78,7 @@ async def mvkroll(ctx, *, dicestr: str):
 async def plainroll(ctx, *, dicestr: str):
     """Just rolls NdN format pool of dice.
 
-    Example: '?roll 1d20 2d10 d8 2d6'
+    Example: '?justroll 1d20 2d10 d8 2d6'
 
     Ignores anything extra it doesn't understand.
     """
