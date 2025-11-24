@@ -81,17 +81,17 @@ async def plainroll(ctx, *, dicestr: str):
     """Rolls NdN format pool of dice. Only accepts d20, d12, d10, d8, d6 and d4 dice.
 
     For single d20, may call out likely special things like 20=crit, 1=fail, even and odd.
-    
+
     Accepts multiple +N and -N modifiers.
 
     Prints a total of all the dice and the modifiers.
 
     Example: '?justroll 1d20 2d10 d8 2d6 d6' (note: will work out that it's 3d6)
     Example: '?p 1d20 +5 +2' (note: will add 7 to whatever is rolled)
- 
+
     Ignores anything extra it doesn't understand.  Doesn't handle
     advantage/disadvantage, since in many rules and situations an 18 might
-    be better than a 19 or a 2 better than a 16.    
+    be better than a 19 or a 2 better than a 16.
     """
     try:
         response = mvkroller.plainroll(dicestr)
