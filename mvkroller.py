@@ -108,23 +108,24 @@ def print_dice(dicerolls):
 
     return answer
 
+
 def print_d20_special(dicerolls):
     """Checks for special d20 rules and adds stuff for any special stuff"""
     answer = ""
     try:
         for size, values in dicerolls.items():
             if len(values) == 1 and size == 20:
-                if values[0] == 2: # separate because also even
-                  answer += "_Two-Weapon Hit?_\n"
+                if values[0] == 2:  # separate because also even
+                    answer += "_Two-Weapon Hit?_\n"
 
                 if values[0] == 1:
-                  answer += "1 is **Crit Fumble/Fail**"
+                    answer += "1 is **Crit Fumble/Fail**"
                 elif values[0] == 20:
-                  answer += "20 is **Crit Success**"
+                    answer += "20 is **Crit Success**"
                 elif values[0] % 2 == 0:
-                  answer += f"{values[0]} is _Even_"
+                    answer += f"{values[0]} is _Even_"
                 else:
-                  answer += f"{values[0]} is _Odd_"
+                    answer += f"{values[0]} is _Odd_"
                 answer += "\n"
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
