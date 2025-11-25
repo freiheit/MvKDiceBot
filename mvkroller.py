@@ -333,6 +333,7 @@ def plainroll(dicestr: str):
         total += add_amount
 
     for size, values in dicerolls.items():
+        logger.debug("Dice size=%s values=%s", size, values)
         total += sum(values)
 
     answer += f"Total: **{total}**"
