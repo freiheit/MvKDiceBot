@@ -216,7 +216,10 @@ def crit_fumble(fortunedicerolls, characterdicerolls):
 
 
 def possible_fumble(fortunedicerolls):
-    """You also critically fumble if your action is successfully countered and you roll a 1-3 on the d20"""
+    """
+    You also critically fumble if your action is successfully countered
+    and you roll a 1-3 on the d20
+    """
     answer = ""
     if fortunedicerolls[0] <= 3:
         answer += "**Possible Critical Fumble**\n"
@@ -326,7 +329,7 @@ def plainroll(dicestr: str):
     total = 0
 
     if add_amount != 0:
-        answer += "Adjustment: {:+d}\n".format(add_amount)
+        answer += f"Adjustment: {add_amount}\n"
         total += add_amount
 
     for size, values in dicerolls.items():
