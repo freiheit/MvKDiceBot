@@ -1,0 +1,8 @@
+[tool.pylint.main]
+fail-under = 9
+ignore = ["test.py"]
+
+ignore-patterns = ["^\\.#", "^test"]
+
+[tool.pylint.exceptions]
+max-line-length = 120
