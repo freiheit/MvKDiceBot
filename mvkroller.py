@@ -102,7 +102,7 @@ def print_dice(dicerolls):
         for size, values in dicerolls.items():
             if len(values) > 0:
                 answer += f"{len(values)}d{size}{ str(values)} "
-        answer += "\n"
+        # answer += "\n"
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
 
@@ -115,18 +115,18 @@ def print_d20_special(dicerolls):
     try:
         for size, values in dicerolls.items():
             if len(values) == 1 and size == 20:
-                if values[0] == 2:  # separate because also even
-                    answer += "_Two-Weapon Hit?_\n"
-
                 if values[0] == 1:
-                    answer += "1 is **Crit Fumble/Fail**"
+                    answer += "\n1 is **Crit Fumble/Fail**"
                 elif values[0] == 20:
-                    answer += "20 is **Crit Success**"
+                    answer += "\n20 is **Crit Success**"
                 elif values[0] % 2 == 0:
-                    answer += f"{values[0]} is _Even_"
+                    answer += f" (_Even_)"
                 else:
-                    answer += f"{values[0]} is _Odd_"
-                answer += "\n"
+                    answer += f" (_Odd_)"
+
+                if values[0] == 2:  # separate because also even
+                    answer += "\n_Two-Weapon Hit?_"
+
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
 
@@ -279,6 +279,7 @@ def mvkroll(dicestr: str):
     answer += adv_disadv_answer
 
     answer += print_dice(dicerolls)
+    answer += "\n"
 
     possible_fumble_answer = possible_fumble(fortunedicerolls)
 
@@ -325,6 +326,7 @@ def plainroll(dicestr: str):
 
     answer += print_dice(dicerolls)
     answer += print_d20_special(dicerolls)
+    answer += "\n"
 
     total = 0
 
