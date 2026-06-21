@@ -1,0 +1,65 @@
+# .pre-commit-config.yaml
+minimum_pre_commit_version: "4.0.0"
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+exclude: |
+  (^|/)(\.git|\.venv|venv|node_modules|target|dist|build|\.mypy_cache|\.ruff_cache)(/|$)
+
+repos:
+  # Universal hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-executables-have-shebangs
+      - id: fix-byte-order-marker
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+
+  # Python linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        types_or: [python]
+      - id: ruff-format
+        types_or: [python]
+
+  # Shellscript linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: ['-x', '--shell', 'bash']
+        types_or: [shell]
+
+  # Shellscript formatting
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+    - id: shfmt
+      args: ["--indent=4"]
+
+
+  # Markdown linting
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
+  #   rev: v0.48.0
+  #   hooks:
+  #     - id: markdownlint
+  #       args:
+  #         - --fix
+
+  # commit style
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      # CT1=conventional-commits style
+      - id: gitlint
+        args: [--contrib=CT1, --line-length=120, --msg-filename]
+      - id: gitlint-ci
+        args: [--contrib=CT1, --line-length=120, --msg-filename]
