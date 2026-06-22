@@ -28,7 +28,14 @@ can keep using ``mvkroller.RollError`` / ``mvkroller.parse_dice``.
 import logging
 import re
 
-from rollcommon import NUMBER_EMOJI, RollError, parse_dice, print_dice, roll_dice
+from rollcommon import (
+    NUMBER_EMOJI,
+    RollError,
+    merge_rolls,
+    parse_dice,
+    print_dice,
+    roll_dice,
+)
 from rollmvkhelpers import (
     adv_disadv,
     calc_action,
@@ -41,8 +48,14 @@ from rollplainhelpers import parse_math, print_d20_special
 logger = logging.getLogger(__name__)
 
 
-def mvkroll(dicestr: str):
-    """Implementation of dice roller that applies MvK rules."""
+def mvkroll(dicestr: str, prior_rolls=None):
+    """Implementation of dice roller that applies MvK rules.
+
+    Returns ``(text, rolls)`` where ``rolls`` is the raw per-size dice rolled
+    (captured before the MvK math mutates them). Passing a previous ``rolls`` as
+    ``prior_rolls`` reuses those dice and only rolls newly-added ones, so editing
+    a roll re-rolls just the additions.
+    """
 
     logger.debug("Roll %s", {dicestr})
 
@@ -67,7 +80,14 @@ def mvkroll(dicestr: str):
         dicecounts[20] = 1
         answer += "_No advantage/disadvantage, setting 1d20_\n"
 
-    dicerolls = roll_dice(dicecounts)
+    if prior_rolls is None:
+        dicerolls = roll_dice(dicecounts)
+    else:
+        dicerolls = merge_rolls(prior_rolls, dicecounts)
+
+    # Snapshot the raw rolls before the MvK math sorts/discards dice, so an edit
+    # can reuse them.
+    rolls = {size: list(values) for size, values in dicerolls.items()}
 
     # the d20 is called the "Fortune Die"
     fortunedicerolls = dicerolls[20]
@@ -107,15 +127,18 @@ def mvkroll(dicestr: str):
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 
-    return answer
+    return answer, rolls
 
 
-def plainroll(dicestr: str, escalation: int = 0):
+def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
     """Implementation of dice roller that just rolls some dice for you.
 
     ``escalation`` is the 13th Age escalation die for the channel. For a single
     d20 (plus any +/- modifiers) it is shown and added to the total as a separate
     "w/Esc" line, but only when it's actually in play (greater than 0).
+
+    Returns ``(text, rolls)``; passing a previous ``rolls`` as ``prior_rolls``
+    reuses those dice and only rolls newly-added ones (for edited rolls).
     """
 
     logger.debug("Roll %s", {dicestr})
@@ -126,7 +149,10 @@ def plainroll(dicestr: str, escalation: int = 0):
     logger.debug("add_amount %s", {add_amount})
 
     dicecounts = parse_dice(dicestr)
-    dicerolls = roll_dice(dicecounts)
+    if prior_rolls is None:
+        dicerolls = roll_dice(dicecounts)
+    else:
+        dicerolls = merge_rolls(prior_rolls, dicecounts)
 
     answer += print_dice(dicerolls)
     answer += print_d20_special(dicerolls)
@@ -156,4 +182,4 @@ def plainroll(dicestr: str, escalation: int = 0):
     if show_escalation:
         answer += f"\nw/Esc: **{total + escalation}**"
 
-    return answer
+    return answer, dicerolls
