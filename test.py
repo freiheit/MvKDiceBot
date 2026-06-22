@@ -214,14 +214,14 @@ class TestRoller(unittest.TestCase):
     def test_calc_action(self):
         """Ensure actions are tallied properly (only the highest fortune die counts)."""
         dataset = [
-            [[1, 20], [2, 4, 6, 8], "**Action Total: 28** [20, 8]\n"],
-            [[20, 1], [8, 6, 4, 2], "**Action Total: 28** [20, 8]\n"],
-            [[11, 13, 5], [8, 6, 4, 2], "**Action Total: 21** [13, 8]\n"],
-            [[6, 7, 8], [9, 10, 11, 12], "**Action Total: 23** [12, 11]\n"],
+            [[1, 20], [2, 4, 6, 8], "**Action Total: 28** [20, 8]\n", 28],
+            [[20, 1], [8, 6, 4, 2], "**Action Total: 28** [20, 8]\n", 28],
+            [[11, 13, 5], [8, 6, 4, 2], "**Action Total: 21** [13, 8]\n", 21],
+            [[6, 7, 8], [9, 10, 11, 12], "**Action Total: 23** [12, 11]\n", 23],
         ]
-        for fdice, cdice, answer in dataset:
+        for fdice, cdice, answer, total in dataset:
             with self.subTest(dice=[fdice, cdice]):
-                self.assertEqual(roller.calc_action(fdice, cdice), answer)
+                self.assertEqual(roller.calc_action(fdice, cdice), (answer, total))
 
     def test_calc_action_exc(self):
         """Give calc_action() some bad data."""
@@ -235,6 +235,137 @@ class TestRoller(unittest.TestCase):
         for fdice, cdice in dataset:
             with self.subTest(dice=[fdice, cdice]), self.assertRaises(roller.RollError):
                 roller.calc_action(fdice, cdice)
+
+    def test_crit_success(self):
+        """A 20 on the kept fortune die (index 0) is called out as a critical success."""
+        self.assertIn("**Critical Success**", roller.crit_success([20]))
+        self.assertIn("Impact by 2", roller.crit_success([20]))
+        # Only index 0 (the kept die) matters; an empty pool is no crit.
+        for fortune in ([19], [1], []):
+            with self.subTest(fortune=fortune):
+                self.assertEqual(roller.crit_success(fortune), "")
+
+    def test_calc_impact_minimum(self):
+        """Minimum impact of 1 applies only when the fortune die rolled 4+."""
+        # Fortune 5, no character die >= 4: the single point is the minimum, noted.
+        floored = roller.calc_impact([5], [2, 3])
+        self.assertIn("**Impact: 1**", floored)
+        self.assertIn("Minimum impact 1", floored)
+        # Fortune 2, no character die >= 4: stays 0, no minimum-impact note.
+        zero = roller.calc_impact([2], [2, 3])
+        self.assertIn("**Impact: 0**", zero)
+        self.assertNotIn("Minimum impact", zero)
+        # A normal result is unchanged and carries no note.
+        normal = roller.calc_impact([20], [8, 6, 4, 2])
+        self.assertIn("**Impact: 4**", normal)
+        self.assertNotIn("Minimum impact", normal)
+
+    def test_compare_counter(self):
+        """The optional counter total decides success (tie = success)."""
+        self.assertEqual(roller.compare_counter(20, None), "")
+        self.assertIn("**Success!**", roller.compare_counter(21, 21))
+        self.assertIn("**Success!**", roller.compare_counter(25, 21))
+        fail = roller.compare_counter(18, 21)
+        self.assertIn("**Failure**", fail)
+        self.assertIn("cannot inflict stress", fail)
+
+    def test_stress_reduce(self):
+        """Overwhelmed OR Staggered reduces the highest character die type pre-roll."""
+        counts = {20: 1, 12: 0, 10: 1, 8: 1, 6: 0, 4: 0}
+        answer, out = roller.stress_adjust(counts, True, False)
+        self.assertIn("Reduced highest die: d10 → d8", answer)
+        # The d10 became a d8 (so 2d8 now); the d20 is untouched.
+        self.assertEqual(out[10], 0)
+        self.assertEqual(out[8], 2)
+        self.assertEqual(out[20], 1)
+
+    def test_stress_reduce_d4_removed(self):
+        """Reducing a d4 drops it from the pool entirely."""
+        counts = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 1}
+        answer, out = roller.stress_adjust(counts, False, True)
+        self.assertIn("d4 → removed", answer)
+        self.assertEqual(out[4], 0)
+
+    def test_stress_scratch(self):
+        """Overwhelmed AND Staggered scratches the highest character die type."""
+        counts = {20: 1, 12: 1, 10: 1, 8: 0, 6: 0, 4: 0}
+        answer, out = roller.stress_adjust(counts, True, True)
+        self.assertIn("Scratched highest die: d12", answer)
+        self.assertEqual(out[12], 0)
+        self.assertEqual(out[10], 1)
+
+    def test_stress_no_op_and_no_character_dice(self):
+        """No stress flags is a no-op; stress with only a d20 changes nothing."""
+        counts = {20: 1, 12: 0, 10: 1, 8: 0, 6: 0, 4: 0}
+        self.assertEqual(roller.stress_adjust(counts, False, False)[0], "")
+        only_d20 = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 0}
+        answer, out = roller.stress_adjust(only_d20, True, False)
+        self.assertIn("No character dice", answer)
+        self.assertEqual(out[20], 1)
+
+    def test_calc_action_burnout_keeps_three(self):
+        """Burn Out totals the highest three dice (still at most one fortune die)."""
+        answer, total = roller.calc_action([20, 19], [8, 6, 4], keep=3)
+        self.assertEqual(total, 34)  # 20 + 8 + 6, only one d20 allowed
+        self.assertIn("[20, 8, 6]", answer)
+
+    def test_calc_action_modifier(self):
+        """A flat modifier adjusts the action total and is shown."""
+        answer, total = roller.calc_action([20], [8, 6], modifier=-1)
+        self.assertEqual(total, 27)
+        self.assertIn("**Action Total: 27**", answer)
+        self.assertIn("(= 28 -1)", answer)
+
+    def test_calc_impact_modifier(self):
+        """A flat impact modifier (e.g. Burst +2) adds on top of rolled impact."""
+        answer = roller.calc_impact([20], [8, 6, 4, 2], modifier=2)
+        self.assertIn("**Impact: 6**", answer)  # rolled 4, +2
+        self.assertIn("(= 4 +2)", answer)
+
+    def test_boost_reduce(self):
+        """boost/reduce step a die one size; d12 boost adds a d4, d4 reduce removes."""
+        counts = {20: 1, 12: 0, 10: 0, 8: 1, 6: 0, 4: 0}
+        answer, out = roller.boost_reduce(counts, [8], [])
+        self.assertIn("boosted d8 → d10", answer)
+        self.assertEqual((out[8], out[10]), (0, 1))
+
+        counts = {20: 1, 12: 1, 10: 0, 8: 0, 6: 0, 4: 0}
+        answer, out = roller.boost_reduce(counts, [12], [])
+        self.assertIn("added a d4", answer)
+        self.assertEqual((out[12], out[4]), (1, 1))
+
+        counts = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 1}
+        answer, out = roller.boost_reduce(counts, [], [4])
+        self.assertIn("reduced d4 → removed", answer)
+        self.assertEqual(out[4], 0)
+
+    def test_boost_reduce_guards(self):
+        """The fortune die can't be boost/reduced, nor can an absent die."""
+        counts = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 0}
+        answer, _out = roller.boost_reduce(counts, [20], [8])
+        self.assertIn("cannot boost the fortune die", answer)
+        self.assertIn("no d8 to reduce", answer)
+        self.assertEqual(roller.boost_reduce(counts, [], [])[0], "")
+
+    def test_parse_modifiers(self):
+        """Roll-string keywords resolve to the right modifier fields."""
+        mods = roller._parse_modifiers("d20 2d10 -1")
+        self.assertEqual((mods.action_mod, mods.impact_mod), (-1, 0))
+
+        mods = roller._parse_modifiers("d20 +2 impact -1")
+        self.assertEqual((mods.action_mod, mods.impact_mod), (-1, 2))
+
+        mods = roller._parse_modifiers("d20 unstable")
+        self.assertEqual(mods.action_mod, -1)
+
+        mods = roller._parse_modifiers("d20 burst")
+        self.assertEqual(mods.impact_mod, 2)
+        self.assertTrue(mods.disadvantage)
+
+        mods = roller._parse_modifiers("d20 boost d8 reduce d4 burnout vs 21")
+        self.assertEqual((mods.boosts, mods.reduces), ([8], [4]))
+        self.assertTrue(mods.burnout)
+        self.assertEqual(mods.counter, 21)
 
 
 class TestBotCommands(unittest.TestCase):

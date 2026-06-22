@@ -1,3 +1,10 @@
+<!--
+Rules below are verified against the current corebook PDF
+(Mecha_Vs_Kaiju_202X_Corebook.pdf), which supersedes the older
+202X-V1.05 .docx. Quoted lines are from that corebook. The italic
+"_Bot ..._" notes describe what MvKDiceBot actually does.
+-->
+
 # Basic Terminology
 
 These dice are called character dice, because they reflect things about your character that can help you succeed.
@@ -9,10 +16,10 @@ A d20 is known as a fortune die, and it transcends these benchmarks.
 
 # Critical Successes
 
-When you roll a 20 on the fortune die and your action succeeds, it is considered a critical success.
-When you roll a critical success, you can choose to either increase your impact by 2 or gain 1 inspiration point.
+Corebook:
+> When you roll a 20 on the fortune die you use for your total it is considered a critical success. You can choose to either increase your Impact by 2 or gain 1 Inspiration point.
 
-_Bot calls out a 20 as crit success_
+- _Bot calls out a 20 on the kept fortune die as a critical success and notes the +2 impact / 1 inspiration choice._
 
 # Critical Fumble
 
@@ -29,12 +36,11 @@ Whenever you roll a critical fumble, you gain 1 inspiration point.
 
 # Success or Failure
 
-To figure out whether your action succeeds, compare your action total to the opposing counter total.
-If the counter total is higher, you fail; otherwise, your action succeeds.
-**An unsuccessful action cannot inflict stress.**
+Corebook:
+> To figure out whether your action succeeds, compare your action total to the opposing counter total. If the counter total is higher, you fail; otherwise, your action succeeds. A successfully countered action cannot inflict stress.
 
-- _Bot doesn't really do anything with this. Doesn't differentiate action vs counter._
-- _Bot _does_ add up the Action total and display that. Easy for users to compare rolls since action total is simple integer._
+- _Bot adds up the Action total and displays it; easy for users to compare rolls since it's a simple integer._
+- _Optionally, give the bot a counter total with `vs N` (or `counter N`) and it reports Success/Failure (tie = success). On a failure it notes the action can't inflict stress but still gets minimum impact._
 
 # Impact
 
@@ -47,12 +53,10 @@ Character dice that roll 10 or higher generate two impact.
 
 ## Minimum Impact
 
-Your character is highly capable.
-Even if their action is countered, they are still able to accomplish something positive with their action.
-So long as you roll a 4 or higher on your fortune die you still generate a minimum impact of 1.
-You may spend this on any result except causing stress.
+Corebook:
+> Your minimum impact when taking an action is 1, even if the action is successfully countered (so long as the Fortune Die rolled 4 or higher).
 
-- _TODO: Maybe include note about minimum impact whenever fortune die is >=4?_
+- _Bot notes "Minimum impact 1 from the fortune die" when the only impact is the lone point a 4+ fortune die guarantees (the floor that applies even if countered). A 4+ fortune die already contributes 1 impact on its own, so the floor only binds when no character die rolled 4+; with a sub-4 fortune die and no qualifying character dice the impact is genuinely 0._
 
 # Advantage and Disadvantage
 
@@ -77,7 +81,7 @@ In some situations (such as when you have taken too much stress), the rules requ
 This is done after you roll your dice pool.
 Once all the dice are rolled, a scratched die is removed from your roll entirely, and cannot be used for your action total or your impact—it’s as if it was never part of your pool at all.
 
-_Bot doesn't scratch die except in case of critical fumble via d20 rolling a 1._
+_Bot scratches a die on a critical fumble (d20 rolling a 1) and for Overwhelmed+Staggered stress (see Stress, below)._
 
 # The Limits of Fortune
 
@@ -87,14 +91,47 @@ _Bot enforces this: rolls have 1d20 except for advantage/disadvantage and only 1
 
 # Stress
 
-- Reduce your highest die if you are Overwhelmed OR Staggered.
-- Scratch your highest die if you are Overwhelmed AND Staggered.
+Corebook (Being Overwhelmed or Staggered):
+> If you are Overwhelmed OR Staggered: Reduce the highest die in your pool for all rolls.
+> If you are Overwhelmed AND Staggered: Scratch the highest die in your pool for all rolls.
 
-_TODO: look for overwhelmed, staggered or both in roll string and do this automatically for the user?_
+Corebook quick reference clarifies "highest die" as the highest die **type**:
+> Overwhelmed. ... Reduce the highest die type in your pool.
+> Staggered. ... Reduce the highest die type in your pool.
+> Overwhelmed+Staggered. Scratch the highest die type in your pool.
+
+(The older .docx was self-contradictory here — one passage said the
+Overwhelmed-AND-Staggered case was "reduce, then drop the highest die result
+from your total." The corebook settles it: that case is simply "scratch," and
+"highest die" means highest die _type_, i.e. size.)
+
+- _Bot looks for `overwhelmed`/`staggered` in the roll string and adjusts the pool **before rolling**: one of them reduces the largest character die type one size (d12→d10→…→d4, and a d4 is removed); both together scratch the largest character die type. The fortune d20 is never reduced/scratched (the rules never boost/reduce the fortune die)._
 
 # Impact Total
 
 Count how many dice rolled 4+ for your Impact
 Minimum 1 Impact if your fortune die rolled 4+, even if your action was countered.
 
-_Bot calculates this. Except doesn't display minimum impact rule. Doesn't know if action was countered._
+_Bot calculates this and notes the minimum-impact-1 case. It only knows an action was countered if you give it a counter total (`vs N`)._
+
+# Boost / Reduce (pool building)
+
+Corebook:
+> The rules sometimes tell you to boost a die, changing it from a die of one size to one of a larger size ... or to reduce a die (the reverse...). When you boost a d12 in your dice pool, you keep the d12, but add an extra d4 to your pool as well. When you reduce a d4 in your pool, you remove that die entirely. You never boost the Fortune die up or down, and no other die size can boost to a d20.
+
+- _Bot supports `boost dN` / `reduce dN` keywords that apply this before rolling: boost steps a die up one size (boosting a d12 keeps it and adds a d4); reduce steps it down (reducing a d4 removes it). The die must already be in the pool, and the fortune d20 is never boosted/reduced. (You can also just type the dice you end up with.)_
+
+# Ability-driven dice mechanics from the corebook
+
+These come from specific character abilities/perks/powers. The bot now automates
+the parts that are pure dice math (via keywords); anything that requires knowing
+which of your dice is the "Drive die" etc. is left to the player.
+
+- Flat modifiers — _Bot: `+N`/`-N` adjust the **action total**; `impact +N` (or `+N impact`) adjusts **impact**. (MvK is mostly a dice-not-modifiers system; these cover the rare flat bonuses.)_
+- Perk "Dice": "Add a d6 to your dice pool. • Boost a die that helps you. • Double a specific trait die in your pool. • Reduce a die that opposes you. • Reroll your dice pool." — _Bot: boost/reduce are keywords (see Boost/Reduce); add/double a die by just typing it; reroll by rolling again._
+- Perk "Impact": "Add 2 points of impact towards a specific outcome." — _Bot: `impact +2`._
+- "Unstable": "Apply a cumulative -1 modifier to your action total each time this is used." — _Bot: `unstable` keyword applies -1 (the per-use stacking is up to you — repeat the keyword or use `-N`)._
+- "Burst": "Double your Drive die and add +2 Impact ... roll one additional fortune die ... but the highest-rolling d20 in your pool is scratched." — _Bot: `burst` keyword adds +2 impact and rolls with disadvantage; add the doubled Drive die yourself._
+- "Burn Out": "Add three dice to determine your action total." — _Bot: `burnout` keyword totals the highest three dice (the extra trait dice are added by you)._
+- Spend Inspiration: before rolling, add a trait die or roll with Advantage; after rolling, add an unused die to your total / use one as an extra impact. — _Not automated; add the die or use `advantage`._
+- "Blowback": "If you roll a 1 on any die in your pool the GM may immediately reroll that and use it as an Impact die on you or an ally." — _Not automated (GM-side)._
