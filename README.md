@@ -1,5 +1,6 @@
 [![pre-commit](https://github.com/freiheit/MvKDiceBot/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/pre-commit.yml)
 [![Python Checks](https://github.com/freiheit/MvKDiceBot/actions/workflows/python.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/python.yml)
+[![Tests](https://github.com/freiheit/MvKDiceBot/actions/workflows/test.yml/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/test.yml)
 [![CodeQL](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/github-code-scanning/codeql)
 [![Dependabot Updates](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependabot/dependabot-updates)
 
