@@ -1,6 +1,9 @@
 ## project-specific:
 mvkdicebot.ini
 
+## Rulebook PDFs (large, copyrighted) kept locally for reference:
+*.pdf
+
 ## Editor/Linux:
 *~
 

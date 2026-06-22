@@ -28,7 +28,7 @@ can keep using ``mvkroller.RollError`` / ``mvkroller.parse_dice``.
 import logging
 import re
 
-from rollcommon import RollError, parse_dice, print_dice, roll_dice
+from rollcommon import NUMBER_EMOJI, RollError, parse_dice, print_dice, roll_dice
 from rollmvkhelpers import (
     adv_disadv,
     calc_action,
@@ -110,8 +110,13 @@ def mvkroll(dicestr: str):
     return answer
 
 
-def plainroll(dicestr: str):
-    """Implementation of dice roller that just rolls some dice for you."""
+def plainroll(dicestr: str, escalation: int = 0):
+    """Implementation of dice roller that just rolls some dice for you.
+
+    ``escalation`` is the 13th Age escalation die for the channel. For a single
+    d20 (plus any +/- modifiers) it is shown and added to the total as a separate
+    "w/Esc" line, but only when it's actually in play (greater than 0).
+    """
 
     logger.debug("Roll %s", {dicestr})
 
@@ -127,6 +132,15 @@ def plainroll(dicestr: str):
     answer += print_d20_special(dicerolls)
     answer += "\n"
 
+    # A single d20 (modifiers don't count) is the standard 13th Age attack roll,
+    # so that's when the escalation die applies.
+    single_d20 = dicecounts[20] == 1 and all(
+        count == 0 for size, count in dicecounts.items() if size != 20
+    )
+    show_escalation = single_d20 and escalation > 0
+    if show_escalation:
+        answer += f"-# Esc: {NUMBER_EMOJI[escalation]}\n"
+
     total = 0
 
     if add_amount != 0:
@@ -138,5 +152,8 @@ def plainroll(dicestr: str):
         total += sum(values)
 
     answer += f"Total: **{total}**"
+
+    if show_escalation:
+        answer += f"\nw/Esc: **{total + escalation}**"
 
     return answer

@@ -20,11 +20,14 @@
 
 import asyncio
 import random
+import re
 import sys
 import unittest
 
+import escalationcog
 import mvkdicebot
 import mvkroller as roller
+import rollcog
 
 
 class TestRoller(unittest.TestCase):
@@ -63,6 +66,41 @@ class TestRoller(unittest.TestCase):
         for dstring in strings:
             with self.subTest(dstring=dstring), self.assertRaises(roller.RollError):
                 roller.parse_dice(dstring)
+
+    def test_parse_math(self):
+        """+N/-N modifiers are summed, tolerating whitespace after the sign."""
+        cases = {
+            "": 0,
+            "d20": 0,
+            "+7": 7,
+            "+ 7": 7,
+            "+  7": 7,
+            "-3": -3,
+            "- 3": -3,
+            "d20+7": 7,
+            "d20 + 7": 7,
+            "+5 +2": 7,
+            "+5 - 2": 3,
+        }
+        for dstring, expected in cases.items():
+            with self.subTest(dstring=dstring):
+                self.assertEqual(roller.parse_math(dstring), expected)
+
+    def test_plainroll_escalation_shown(self):
+        """A single d20 with escalation > 0 shows the Esc line and escalated total."""
+        out = roller.plainroll("d20 +7", escalation=3)
+        self.assertIn("-# Esc: :three:", out)
+        total = int(re.search(r"Total: \*\*(-?\d+)\*\*", out).group(1))
+        w_esc = int(re.search(r"w/Esc: \*\*(-?\d+)\*\*", out).group(1))
+        self.assertEqual(w_esc, total + 3)
+
+    def test_plainroll_escalation_hidden(self):
+        """No escalation lines at 0, for multiple d20s, or when other dice are present."""
+        for dstring, esc in [("d20", 0), ("2d20", 3), ("d20 d6", 3)]:
+            with self.subTest(dstring=dstring, escalation=esc):
+                out = roller.plainroll(dstring, escalation=esc)
+                self.assertNotIn("Esc:", out)
+                self.assertNotIn("w/Esc", out)
 
     def test_roller_exception(self):
         """Ensure RollError exceptions carry messages properly."""
@@ -221,6 +259,8 @@ class TestBotCommands(unittest.TestCase):
             "roll": "mvkroll",
             "p": "plainroll",
             "justroll": "plainroll",
+            "esc": "escalation",
+            "e": "escalation",
         }
         for alias, target in aliases.items():
             with self.subTest(alias=alias):
@@ -231,7 +271,7 @@ class TestBotCommands(unittest.TestCase):
     def test_app_commands_in_tree(self):
         """The commands (incl. /r, /p, /help) are present in the application command tree."""
         app_names = {cmd.name for cmd in mvkdicebot.bot.tree.get_commands()}
-        for name in ("mvkroll", "plainroll", "help", "r", "p"):
+        for name in ("mvkroll", "plainroll", "help", "r", "p", "escalation", "esc"):
             with self.subTest(name=name):
                 self.assertIn(name, app_names)
 
@@ -245,6 +285,115 @@ class TestBotCommands(unittest.TestCase):
     def test_setup_hook_is_callable(self):
         """The startup sync hook is wired up."""
         self.assertTrue(callable(mvkdicebot.bot.setup_hook))
+
+
+class TestRollEcho(unittest.TestCase):
+    """Test the optional input echo used by the slash commands."""
+
+    @staticmethod
+    def _capture():
+        """Return (captured_list, async send) that records what was sent."""
+        captured = []
+
+        async def send(msg):
+            captured.append(msg)
+
+        return captured, send
+
+    def test_echo_prepends_input(self):
+        """echo_input prepends the roll string as a '-# ' subtext line."""
+        captured, send = self._capture()
+        asyncio.run(
+            rollcog._do_roll(send, lambda s: "RESULT", "d20 +7", echo_input=True)
+        )
+        self.assertEqual(captured, ["> -# `d20 +7`\nRESULT"])
+
+    def test_no_echo_by_default(self):
+        """Without echo_input the output is unchanged (the text-command case)."""
+        captured, send = self._capture()
+        asyncio.run(rollcog._do_roll(send, lambda s: "RESULT", "d20 +7"))
+        self.assertEqual(captured, ["RESULT"])
+
+    def test_echo_on_error(self):
+        """The echo line is also prepended to a RollError message, then re-raised."""
+        captured, send = self._capture()
+
+        def boom(_):
+            raise roller.RollError("bad dice")
+
+        with self.assertRaises(roller.RollError):
+            asyncio.run(rollcog._do_roll(send, boom, "d99", echo_input=True))
+        self.assertEqual(captured, ["> -# `d99`\nbad dice"])
+
+
+class TestEscalation(unittest.TestCase):
+    """Test the escalation-die value logic and the inactivity expiry."""
+
+    def test_next_value_increment_caps(self):
+        """+1/up/next increment but never exceed the maximum."""
+        for action in ("+", "+1", "up", "next", "advance"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(0, action), 1)
+                self.assertEqual(escalationcog.next_value(3, action), 4)
+                self.assertEqual(
+                    escalationcog.next_value(escalationcog.MAX_VALUE, action),
+                    escalationcog.MAX_VALUE,
+                )
+
+    def test_next_value_decrement_floors(self):
+        """-1/down/back decrement but never go below 0."""
+        for action in ("-", "-1", "down", "back"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(3, action), 2)
+                self.assertEqual(escalationcog.next_value(0, action), 0)
+
+    def test_next_value_reset_and_set(self):
+        """reset/new/end go to 0; a bare number sets directly."""
+        for action in ("reset", "new", "end", "0"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(5, action), 0)
+        self.assertEqual(escalationcog.next_value(0, "3"), 3)
+        self.assertEqual(escalationcog.next_value(2, "6"), 6)
+
+    def test_next_value_bad_input(self):
+        """Out-of-range or unrecognized actions raise ValueError."""
+        for action in ("7", "99", "+2", "banana", "-3"):
+            with self.subTest(action=action), self.assertRaises(ValueError):
+                escalationcog.next_value(0, action)
+
+    def test_tracker_per_key_isolation(self):
+        """Different channels track independent values."""
+        tracker = escalationcog.EscalationTracker(now=lambda: 0.0)
+        tracker.set("a", 3)
+        tracker.set("b", 5)
+        self.assertEqual(tracker.get("a"), 3)
+        self.assertEqual(tracker.get("b"), 5)
+        self.assertEqual(tracker.get("never-set"), 0)
+
+    def test_tracker_expiry(self):
+        """A value lapses back to 0 once it has gone untouched past EXPIRY."""
+        clock = {"t": 1000.0}
+        tracker = escalationcog.EscalationTracker(now=lambda: clock["t"], expiry=100)
+        tracker.set("chan", 4)
+        clock["t"] += 50  # still fresh
+        self.assertEqual(tracker.get("chan"), 4)
+        clock["t"] += 100  # now 150s since set, past the 100s expiry
+        self.assertEqual(tracker.get("chan"), 0)
+
+    def test_format_value(self):
+        """Formatting uses a header, a keycap emoji, and a subtext detail line."""
+        zero = escalationcog.format_value(0)
+        self.assertIn("## Escalation Die Is", zero)
+        self.assertIn(":zero:", zero)
+        self.assertIn("No bonus yet", zero)
+
+        three = escalationcog.format_value(3)
+        self.assertIn(":three:", three)
+        self.assertIn("+3", three)
+
+        maxed = escalationcog.format_value(escalationcog.MAX_VALUE)
+        self.assertIn(":six:", maxed)
+        self.assertIn("maximum", maxed)
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Cogs (loaded as discord.py extensions in setup_hook). Each module provides the
 # commands and an `async def setup(bot)` entry point.
-EXTENSIONS = ("rollcog", "helpcog")
+EXTENSIONS = ("rollcog", "helpcog", "escalationcog")
 
 # Guild IDs to register slash commands in directly, for instant updates instead
 # of waiting on global propagation. Populated from the config in main(); an empty
