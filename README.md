@@ -14,16 +14,21 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
 (`/mvkroll dice:1d20 2d10`).
 
 - `mvkroll` — rolls a dice pool and applies the MvK rules math (action total,
-  impact, advantage/disadvantage, fumbles).
+  impact, advantage/disadvantage, fumbles). Also available as the slash command
+  `/r` (Discord has no slash-command aliases, so `/r` is a second command that
+  does the same thing).
 - `plainroll` — just rolls dice and adds up `+N`/`-N` modifiers. For a single
   d20 it also calls out 13th Age-flavored results (crit, fumble, even/odd,
-  possible two-weapon hit).
-- `help` — auto-generated command list and usage. Available as `?help` (the
-  built-in help is a text command, so there is currently no `/help`).
+  possible two-weapon hit). Also available as the slash command `/p`.
+- `help` — auto-generated command list and usage. Available as `?help`,
+  `@MvkDiceBot help`, or `/help` (optionally pass a command name, e.g.
+  `/help command:mvkroll`).
 
-Slash commands are registered with Discord automatically on startup (a global
-sync). The first time after a new deploy they can take up to ~1 hour to appear
-in Discord's `/` menu; the text and mention forms work immediately.
+Slash commands are registered with Discord automatically on startup. If you set
+`primary_guilds` (a list of guild/server IDs) in `mvkdicebot.ini`, they are
+synced to those servers instantly. Otherwise they are synced globally, which can
+take up to ~1 hour to appear in Discord's `/` menu the first time after a new
+deploy. The text and mention forms always work immediately.
 
 ## Invite My instance
 

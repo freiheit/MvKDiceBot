@@ -92,10 +92,15 @@ class TestBotCommands(unittest.TestCase):
                 self.assertEqual(command.name, target)
 
     def test_app_commands_in_tree(self):
-        """The hybrid commands are present in the application command tree."""
+        """The commands (incl. /r, /p, /help) are present in the application command tree."""
         app_names = {cmd.name for cmd in mvkdicebot.bot.tree.get_commands()}
-        self.assertIn("mvkroll", app_names)
-        self.assertIn("plainroll", app_names)
+        for name in ("mvkroll", "plainroll", "help", "r", "p"):
+            with self.subTest(name=name):
+                self.assertIn(name, app_names)
+
+    def test_help_command_routes_through_context(self):
+        """The help command sends through the context so /help can reuse it."""
+        self.assertIsInstance(mvkdicebot.bot.help_command, mvkdicebot.HybridHelpCommand)
 
     def test_setup_hook_is_callable(self):
         """The startup sync hook is wired up."""
