@@ -32,7 +32,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     fortunedicerolls = dicerolls[20]
 
     try:
-        if advantage or disadvantage:
+        if (advantage or disadvantage) and len(fortunedicerolls):
             logger.debug("Dicecounts %s", dicecounts)
             logger.debug("Dicerolls %s", dicerolls)
             answer += "Original d20s: "
@@ -53,9 +53,10 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
 
 
 def calc_action(fortunedicerolls, characterdicerolls):
-    """Compute the action total, using up to one d20 and the highest character die roll."""
+    """Compute the action total, using the highest two rolls. Up to one fortune die may be used."""
     try:
-        action_dice = fortunedicerolls + characterdicerolls
+        action_dice = sorted(fortunedicerolls, reverse=True)[:1]
+        action_dice += characterdicerolls
         action_dice.sort(reverse=True)
         action_dice = action_dice[:2]
         answer = f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
