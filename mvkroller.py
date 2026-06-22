@@ -101,7 +101,7 @@ def print_dice(dicerolls):
     try:
         for size, values in dicerolls.items():
             if len(values) > 0:
-                answer += f"{len(values)}d{size}{ str(values)} "
+                answer += f"{len(values)}d{size}{str(values)} "
         # answer += "\n"
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
@@ -120,9 +120,9 @@ def print_d20_special(dicerolls):
                 elif values[0] == 20:
                     answer += "\n20 is **Crit Success**"
                 elif values[0] % 2 == 0:
-                    answer += f" (_Even_)"
+                    answer += " (_Even_)"
                 else:
-                    answer += f" (_Odd_)"
+                    answer += " (_Odd_)"
 
                 if values[0] == 2:  # separate because also even
                     answer += "\n_Two-Weapon Hit?_"
@@ -143,7 +143,7 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
             logger.debug("Dicecounts %s", dicecounts)
             logger.debug("Dicerolls %s", dicerolls)
             answer += "Original d20s: "
-            answer += f"{len(fortunedicerolls)}d20{ str(fortunedicerolls)} -- "
+            answer += f"{len(fortunedicerolls)}d20{str(fortunedicerolls)} -- "
             if advantage:
                 answer += "_Applying advantage_\n\n"
                 dicerolls[20].sort(reverse=True)

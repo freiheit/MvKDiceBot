@@ -3,18 +3,45 @@
 [![Dependabot Updates](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/freiheit/MvKDiceBot/actions/workflows/dependabot/dependabot-updates)
 
 # MvKDiceBot
+
 Dice bot for MvK ruleset...
 
-## Invite My instance:
-https://discord.com/api/oauth2/authorize?client_id=1168083075515826186&permissions=274877910016&scope=bot%20applications.commands
+## Commands
+
+The bot understands these commands. Each can be invoked three ways: with the
+text prefix (`?mvkroll 1d20 2d10`, plus aliases like `?r`, `?roll`, `?p`), by
+mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
+(`/mvkroll dice:1d20 2d10`).
+
+- `mvkroll` — rolls a dice pool and applies the MvK rules math (action total,
+  impact, advantage/disadvantage, fumbles). Also available as the slash command
+  `/r` (Discord has no slash-command aliases, so `/r` is a second command that
+  does the same thing).
+- `plainroll` — just rolls dice and adds up `+N`/`-N` modifiers. For a single
+  d20 it also calls out 13th Age-flavored results (crit, fumble, even/odd,
+  possible two-weapon hit). Also available as the slash command `/p`.
+- `help` — auto-generated command list and usage. Available as `?help`,
+  `@MvkDiceBot help`, or `/help` (optionally pass a command name, e.g.
+  `/help command:mvkroll`).
+
+Slash commands are registered with Discord automatically on startup. If you set
+`primary_guilds` (a list of guild/server IDs) in `mvkdicebot.ini`, they are
+synced to those servers instantly. Otherwise they are synced globally, which can
+take up to ~1 hour to appear in Discord's `/` menu the first time after a new
+deploy. The text and mention forms always work immediately.
+
+## Invite My instance
+
+<https://discord.com/api/oauth2/authorize?client_id=1168083075515826186&permissions=274877910016&scope=bot%20applications.commands>
 
 ## Installing
 
-### Example on CentOS Stream9:
+### Example on CentOS Stream9
+
 1. Install python: `yum install python3.11 python3.11-devel python3.11-pip python3.11-pip-wheel python3.11-wheel`
 2. Make a venv: `python3.11 -m venv --symlinks --system-site-packages .venv`
 3. Install requirements into venv: `./.venv/bin/pip install -r requirements.txt`
-4. Create a bot account: https://discord.com/developers/applications/
+4. Create a bot account: <https://discord.com/developers/applications/>
 5. On the application's "OAuth2" page, generate an invite URL:
    - Scopes: bot, applications.commands
    - Bot Permissions: Read Messages/View Channels, Send Messages, Send Messages in Threads
