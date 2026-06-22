@@ -16,9 +16,12 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
 (`/mvkroll dice:1d20 2d10`).
 
 - `mvkroll` — rolls a dice pool and applies the MvK rules math (action total,
-  impact, advantage/disadvantage, fumbles). Also available as the slash command
-  `/r` (Discord has no slash-command aliases, so `/r` is a second command that
-  does the same thing).
+  impact, advantage/disadvantage, fumbles, and critical success). Add
+  `overwhelmed`/`staggered` to apply stress (reduce your highest die, or scratch
+  it if both apply), and `vs N` (or `counter N`) to compare your action total
+  against a counter total. Also available as the slash command `/r` (Discord has
+  no slash-command aliases, so `/r` is a second command that does the same
+  thing).
 - `plainroll` — just rolls dice and adds up `+N`/`-N` modifiers. For a single
   d20 it also calls out 13th Age-flavored results (crit, fumble, even/odd,
   possible two-weapon hit) and, when this channel's escalation die is set, shows

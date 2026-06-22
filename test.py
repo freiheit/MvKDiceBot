@@ -214,14 +214,14 @@ class TestRoller(unittest.TestCase):
     def test_calc_action(self):
         """Ensure actions are tallied properly (only the highest fortune die counts)."""
         dataset = [
-            [[1, 20], [2, 4, 6, 8], "**Action Total: 28** [20, 8]\n"],
-            [[20, 1], [8, 6, 4, 2], "**Action Total: 28** [20, 8]\n"],
-            [[11, 13, 5], [8, 6, 4, 2], "**Action Total: 21** [13, 8]\n"],
-            [[6, 7, 8], [9, 10, 11, 12], "**Action Total: 23** [12, 11]\n"],
+            [[1, 20], [2, 4, 6, 8], "**Action Total: 28** [20, 8]\n", 28],
+            [[20, 1], [8, 6, 4, 2], "**Action Total: 28** [20, 8]\n", 28],
+            [[11, 13, 5], [8, 6, 4, 2], "**Action Total: 21** [13, 8]\n", 21],
+            [[6, 7, 8], [9, 10, 11, 12], "**Action Total: 23** [12, 11]\n", 23],
         ]
-        for fdice, cdice, answer in dataset:
+        for fdice, cdice, answer, total in dataset:
             with self.subTest(dice=[fdice, cdice]):
-                self.assertEqual(roller.calc_action(fdice, cdice), answer)
+                self.assertEqual(roller.calc_action(fdice, cdice), (answer, total))
 
     def test_calc_action_exc(self):
         """Give calc_action() some bad data."""
@@ -235,6 +235,81 @@ class TestRoller(unittest.TestCase):
         for fdice, cdice in dataset:
             with self.subTest(dice=[fdice, cdice]), self.assertRaises(roller.RollError):
                 roller.calc_action(fdice, cdice)
+
+    def test_crit_success(self):
+        """A 20 on the kept fortune die (index 0) is called out as a critical success."""
+        self.assertIn("**Critical Success**", roller.crit_success([20]))
+        self.assertIn("Impact by 2", roller.crit_success([20]))
+        # Only index 0 (the kept die) matters; an empty pool is no crit.
+        for fortune in ([19], [1], []):
+            with self.subTest(fortune=fortune):
+                self.assertEqual(roller.crit_success(fortune), "")
+
+    def test_calc_impact_minimum(self):
+        """Minimum impact of 1 applies only when the fortune die rolled 4+."""
+        # Fortune 5, no character die >= 4: the single point is the minimum, noted.
+        floored = roller.calc_impact([5], [2, 3])
+        self.assertIn("**Impact: 1**", floored)
+        self.assertIn("Minimum impact 1", floored)
+        # Fortune 2, no character die >= 4: stays 0, no minimum-impact note.
+        zero = roller.calc_impact([2], [2, 3])
+        self.assertIn("**Impact: 0**", zero)
+        self.assertNotIn("Minimum impact", zero)
+        # A normal result is unchanged and carries no note.
+        normal = roller.calc_impact([20], [8, 6, 4, 2])
+        self.assertIn("**Impact: 4**", normal)
+        self.assertNotIn("Minimum impact", normal)
+
+    def test_compare_counter(self):
+        """The optional counter total decides success (tie = success)."""
+        self.assertEqual(roller.compare_counter(20, None), "")
+        self.assertIn("**Success!**", roller.compare_counter(21, 21))
+        self.assertIn("**Success!**", roller.compare_counter(25, 21))
+        fail = roller.compare_counter(18, 21)
+        self.assertIn("**Failure**", fail)
+        self.assertIn("cannot inflict stress", fail)
+
+    def test_stress_reduce(self):
+        """Overwhelmed OR Staggered reduces the highest character die one size."""
+        rolls = {20: [15], 12: [], 10: [9], 8: [3], 6: [], 4: []}
+        answer, out = roller.stress_adjust(rolls, True, False, random.Random(7))
+        self.assertIn("Reduced highest die: d10[9]", answer)
+        # The d10[9] is gone and a d8 was rerolled in; the d20 is untouched.
+        self.assertEqual(out[10], [])
+        self.assertEqual(len(out[8]), 2)
+        self.assertEqual(out[20], [15])
+
+    def test_stress_reduce_d4_removed(self):
+        """Reducing a d4 drops it from the pool entirely."""
+        rolls = {20: [10], 12: [], 10: [], 8: [], 6: [], 4: [3]}
+        answer, out = roller.stress_adjust(rolls, False, True, random.Random(1))
+        self.assertIn("→ removed", answer)
+        self.assertEqual(out[4], [])
+
+    def test_stress_scratch(self):
+        """Overwhelmed AND Staggered scratches the highest character die."""
+        rolls = {20: [18], 12: [11], 10: [9], 8: [], 6: [], 4: []}
+        answer, out = roller.stress_adjust(rolls, True, True, random.Random(0))
+        self.assertIn("Scratched highest die: 11", answer)
+        self.assertEqual(out[12], [])
+        self.assertEqual(out[10], [9])
+
+    def test_stress_tiebreak_prefers_larger_die(self):
+        """On a tie the larger die size is the one adjusted."""
+        rolls = {20: [5], 12: [], 10: [6], 8: [], 6: [6], 4: []}
+        answer, out = roller.stress_adjust(rolls, True, True, random.Random(0))
+        self.assertIn("Scratched highest die: 6", answer)
+        self.assertEqual(out[10], [])
+        self.assertEqual(out[6], [6])
+
+    def test_stress_no_op_and_no_character_dice(self):
+        """No stress flags is a no-op; stress with only a d20 changes nothing."""
+        rolls = {20: [15], 12: [], 10: [4], 8: [], 6: [], 4: []}
+        self.assertEqual(roller.stress_adjust(rolls, False, False)[0], "")
+        only_d20 = {20: [15], 12: [], 10: [], 8: [], 6: [], 4: []}
+        answer, out = roller.stress_adjust(only_d20, True, False)
+        self.assertIn("No character dice", answer)
+        self.assertEqual(out[20], [15])
 
 
 class TestBotCommands(unittest.TestCase):

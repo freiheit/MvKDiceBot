@@ -30,7 +30,8 @@ import mvkroller
 # Slash-command parameter descriptions, shared by the hybrid commands and their
 # /r and /p slash aliases so the help text stays identical.
 MVK_DICE_HELP = (
-    "Dice to roll, e.g. '1d20 2d10 d8 2d6'. Add 'advantage'/'disadvantage' for the d20."
+    "Dice, e.g. '1d20 2d10 d8 2d6'. Add 'advantage'/'disadvantage', "
+    "'overwhelmed'/'staggered' (stress), or 'vs N' to compare a counter total."
 )
 PLAIN_DICE_HELP = "Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
 
@@ -153,6 +154,11 @@ class Roll(commands.Cog):
         Add 'disadvantage' to discard highest d20.
         Example: '?roll 2d20 2d10 advantage'
         Example: '?roll 2d20 2d10 disadvantage'
+
+        Add 'overwhelmed' or 'staggered' (stress) to reduce your highest die; both
+        together scratch it instead.
+        Add 'vs N' (or 'counter N') to compare your action total to a counter.
+        Example: '?roll 1d20 2d10 overwhelmed vs 21'
 
         Ignores anything extra it doesn't understand. Editing a text roll re-rolls
         only the dice you added and updates the same reply.

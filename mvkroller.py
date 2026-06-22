@@ -25,6 +25,7 @@ rolling, and display), rollmvkhelpers (MvK rules math), and rollplainhelpers
 can keep using ``mvkroller.RollError`` / ``mvkroller.parse_dice``.
 """
 
+import collections
 import logging
 import re
 
@@ -40,12 +41,38 @@ from rollmvkhelpers import (
     adv_disadv,
     calc_action,
     calc_impact,
+    compare_counter,
     crit_fumble,
+    crit_success,
     possible_fumble,
+    stress_adjust,
 )
 from rollplainhelpers import parse_math, print_d20_special
 
 logger = logging.getLogger(__name__)
+
+# Roll-string modifiers mvkroll understands beyond the dice themselves.
+Modifiers = collections.namedtuple(
+    "Modifiers", "advantage disadvantage overwhelmed staggered counter"
+)
+
+
+def _parse_modifiers(dicestr):
+    """Pull advantage/disadvantage, stress, and an optional counter from the string.
+
+    "disadvantage" contains "advantage", so disadvantage wins when both appear
+    (matching the rules: advantage and disadvantage cancel out, and a lone
+    disadvantage must not also register as advantage).
+    """
+    disadvantage = bool(re.search(r"disadvantage", dicestr, flags=re.IGNORECASE))
+    advantage = (
+        bool(re.search(r"advantage", dicestr, flags=re.IGNORECASE)) and not disadvantage
+    )
+    overwhelmed = bool(re.search(r"overwhelmed", dicestr, flags=re.IGNORECASE))
+    staggered = bool(re.search(r"staggered", dicestr, flags=re.IGNORECASE))
+    match = re.search(r"(?:vs|counter)\s*([0-9]+)", dicestr, flags=re.IGNORECASE)
+    counter = int(match.group(1)) if match else None
+    return Modifiers(advantage, disadvantage, overwhelmed, staggered, counter)
 
 
 def mvkroll(dicestr: str, prior_rolls=None):
@@ -60,19 +87,13 @@ def mvkroll(dicestr: str, prior_rolls=None):
     logger.debug("Roll %s", {dicestr})
 
     answer = ""
-    advantage = False
-    disadvantage = False
-
-    if re.search(r"disadvantage", dicestr, flags=re.IGNORECASE):
-        disadvantage = True
-    elif re.search(r"advantage", dicestr, flags=re.IGNORECASE):
-        advantage = True
+    mods = _parse_modifiers(dicestr)
 
     dicecounts = parse_dice(dicestr)
 
     # advantage and disadvantage need _at least_ 2d20
     # everything else only gets 1d20
-    if advantage or disadvantage:
+    if mods.advantage or mods.disadvantage:
         if dicecounts[20] < 2:
             dicecounts[20] = 2
             answer += "_Setting 2d20 for advantage/disadvantage_\n"
@@ -94,8 +115,21 @@ def mvkroll(dicestr: str, prior_rolls=None):
     fortunedicerolls.sort(reverse=True)
     logger.debug("fortune rolls %s", fortunedicerolls)
 
-    # dice d4-d12 are called "Character Dice"
-    # Grab all the values from all the rolls that weren't d20s
+    adv_disadv_answer, fortunedicerolls = adv_disadv(
+        mods.advantage, mods.disadvantage, dicecounts, dicerolls
+    )
+    answer += adv_disadv_answer
+
+    # Show the pool as rolled, then let stress reduce/scratch the highest die.
+    answer += print_dice(dicerolls)
+    answer += "\n"
+
+    stress_answer, dicerolls = stress_adjust(
+        dicerolls, mods.overwhelmed, mods.staggered
+    )
+    answer += stress_answer
+
+    # dice d4-d12 are called "Character Dice"; grab them after any stress change
     characterdicerolls = [
         val for (key, rollset) in dicerolls.items() if key != 20 for val in rollset
     ]
@@ -104,14 +138,6 @@ def mvkroll(dicestr: str, prior_rolls=None):
 
     if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
-
-    adv_disadv_answer, fortunedicerolls = adv_disadv(
-        advantage, disadvantage, dicecounts, dicerolls
-    )
-    answer += adv_disadv_answer
-
-    answer += print_dice(dicerolls)
-    answer += "\n"
 
     possible_fumble_answer = possible_fumble(fortunedicerolls)
 
@@ -123,7 +149,11 @@ def mvkroll(dicestr: str, prior_rolls=None):
     elif possible_fumble_answer:
         answer += possible_fumble_answer
 
-    answer += calc_action(fortunedicerolls, characterdicerolls)
+    answer += crit_success(fortunedicerolls)
+
+    action_answer, action_total = calc_action(fortunedicerolls, characterdicerolls)
+    answer += action_answer
+    answer += compare_counter(action_total, mods.counter)
 
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 

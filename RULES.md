@@ -12,7 +12,7 @@ A d20 is known as a fortune die, and it transcends these benchmarks.
 When you roll a 20 on the fortune die and your action succeeds, it is considered a critical success.
 When you roll a critical success, you can choose to either increase your impact by 2 or gain 1 inspiration point.
 
-_Bot calls out a 20 as crit success_
+- _Bot calls out a 20 on the kept fortune die as a critical success and notes the +2 impact / 1 inspiration choice._
 
 # Critical Fumble
 
@@ -33,8 +33,8 @@ To figure out whether your action succeeds, compare your action total to the opp
 If the counter total is higher, you fail; otherwise, your action succeeds.
 **An unsuccessful action cannot inflict stress.**
 
-- _Bot doesn't really do anything with this. Doesn't differentiate action vs counter._
-- _Bot _does_ add up the Action total and display that. Easy for users to compare rolls since action total is simple integer._
+- _Bot adds up the Action total and displays it; easy for users to compare rolls since it's a simple integer._
+- _Optionally, give the bot a counter total with `vs N` (or `counter N`) and it reports Success/Failure (tie = success). On a failure it notes the action can't inflict stress but still gets minimum impact._
 
 # Impact
 
@@ -52,7 +52,7 @@ Even if their action is countered, they are still able to accomplish something p
 So long as you roll a 4 or higher on your fortune die you still generate a minimum impact of 1.
 You may spend this on any result except causing stress.
 
-- _TODO: Maybe include note about minimum impact whenever fortune die is >=4?_
+- _Bot notes "Minimum impact 1 from the fortune die" when the only impact is the lone point a 4+ fortune die guarantees (the floor that applies even if countered)._
 
 # Advantage and Disadvantage
 
@@ -77,7 +77,7 @@ In some situations (such as when you have taken too much stress), the rules requ
 This is done after you roll your dice pool.
 Once all the dice are rolled, a scratched die is removed from your roll entirely, and cannot be used for your action total or your impact—it’s as if it was never part of your pool at all.
 
-_Bot doesn't scratch die except in case of critical fumble via d20 rolling a 1._
+_Bot scratches a die on a critical fumble (d20 rolling a 1) and for Overwhelmed+Staggered stress (see Stress, below)._
 
 # The Limits of Fortune
 
@@ -90,11 +90,11 @@ _Bot enforces this: rolls have 1d20 except for advantage/disadvantage and only 1
 - Reduce your highest die if you are Overwhelmed OR Staggered.
 - Scratch your highest die if you are Overwhelmed AND Staggered.
 
-_TODO: look for overwhelmed, staggered or both in roll string and do this automatically for the user?_
+- _Bot looks for `overwhelmed`/`staggered` in the roll string. One of them reduces the highest character die one size and rerolls it (a d4 is removed); both together scratch the highest character die. The fortune d20 is never touched._
 
 # Impact Total
 
 Count how many dice rolled 4+ for your Impact
 Minimum 1 Impact if your fortune die rolled 4+, even if your action was countered.
 
-_Bot calculates this. Except doesn't display minimum impact rule. Doesn't know if action was countered._
+_Bot calculates this and notes the minimum-impact-1 case. It only knows an action was countered if you give it a counter total (`vs N`)._
