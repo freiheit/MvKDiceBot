@@ -79,7 +79,16 @@ def get_primary_guild_ids(config):
 
     "Guild" is the Discord API term for a server. The config value is a
     comma/whitespace-separated list; an empty/missing value yields an empty list
-    (meaning "sync slash commands globally").
+    (meaning "sync slash commands globally"). Non-integer tokens are skipped
+    with a warning rather than crashing startup.
     """
     raw_guilds = config["MAIN"].get("primary_guilds", "")
-    return [int(guild_id) for guild_id in raw_guilds.replace(",", " ").split()]
+
+    guild_ids = []
+    for token in raw_guilds.replace(",", " ").split():
+        try:
+            guild_ids.append(int(token))
+        except ValueError:
+            logger.warning("Ignoring invalid primary_guilds entry: %r", token)
+
+    return guild_ids
