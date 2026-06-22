@@ -29,6 +29,8 @@ import time
 from discord import app_commands
 from discord.ext import commands
 
+from rollcommon import NUMBER_EMOJI
+
 MAX_VALUE = 6
 # A channel's counter resets to 0 once it has gone untouched this long, so a
 # forgotten battle doesn't leave a stale value lying around.
@@ -57,18 +59,6 @@ def next_value(current, action):
             return value
 
     raise ValueError(f"Unrecognized escalation action: {action!r}")
-
-
-# Keycap emoji for each escalation-die value (the die only ranges 0-MAX_VALUE).
-NUMBER_EMOJI = {
-    0: ":zero:",
-    1: ":one:",
-    2: ":two:",
-    3: ":three:",
-    4: ":four:",
-    5: ":five:",
-    6: ":six:",
-}
 
 
 def format_value(value):
@@ -126,6 +116,10 @@ class Escalation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.tracker = EscalationTracker()
+
+    def current_escalation(self, channel_id):
+        """Current escalation die for a channel; used by other cogs (plainroll)."""
+        return self.tracker.get(channel_id)
 
     async def _handle(self, channel_id, action, send):
         """Apply ``action`` to ``channel_id``'s value and reply via ``send``."""

@@ -18,6 +18,8 @@
 # https://github.com/freiheit/MvKDiceBot
 """Dice-rolling commands for MvKDiceBot (text, mention, and slash)."""
 
+import functools
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -58,6 +60,12 @@ class Roll(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+
+    def _plainroller(self, channel_id):
+        """A plainroll callable bound to the channel's current escalation die."""
+        cog = self.bot.get_cog("Escalation")
+        escalation = cog.current_escalation(channel_id) if cog else 0
+        return functools.partial(mvkroller.plainroll, escalation=escalation)
 
     @commands.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])
     @app_commands.describe(dicestr=MVK_DICE_HELP)
@@ -119,7 +127,7 @@ class Roll(commands.Cog):
         """
         await _do_roll(
             ctx.reply,
-            mvkroller.plainroll,
+            self._plainroller(ctx.channel.id),
             dicestr,
             echo_input=ctx.interaction is not None,
         )
@@ -149,7 +157,7 @@ class Roll(commands.Cog):
         """Slash-command alias (/p) for /plainroll."""
         await _do_roll(
             interaction.response.send_message,
-            mvkroller.plainroll,
+            self._plainroller(interaction.channel_id),
             dicestr,
             echo_input=True,
         )

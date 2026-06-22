@@ -20,6 +20,7 @@
 
 import asyncio
 import random
+import re
 import sys
 import unittest
 
@@ -84,6 +85,22 @@ class TestRoller(unittest.TestCase):
         for dstring, expected in cases.items():
             with self.subTest(dstring=dstring):
                 self.assertEqual(roller.parse_math(dstring), expected)
+
+    def test_plainroll_escalation_shown(self):
+        """A single d20 with escalation > 0 shows the Esc line and escalated total."""
+        out = roller.plainroll("d20 +7", escalation=3)
+        self.assertIn("-# Esc: :three:", out)
+        total = int(re.search(r"Total: \*\*(-?\d+)\*\*", out).group(1))
+        w_esc = int(re.search(r"w/Esc: \*\*(-?\d+)\*\*", out).group(1))
+        self.assertEqual(w_esc, total + 3)
+
+    def test_plainroll_escalation_hidden(self):
+        """No escalation lines at 0, for multiple d20s, or when other dice are present."""
+        for dstring, esc in [("d20", 0), ("2d20", 3), ("d20 d6", 3)]:
+            with self.subTest(dstring=dstring, escalation=esc):
+                out = roller.plainroll(dstring, escalation=esc)
+                self.assertNotIn("Esc:", out)
+                self.assertNotIn("w/Esc", out)
 
     def test_roller_exception(self):
         """Ensure RollError exceptions carry messages properly."""
