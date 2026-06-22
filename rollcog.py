@@ -37,6 +37,14 @@ PLAIN_DICE_HELP = "Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
 # How many recent text rolls to remember (message -> our reply) for edit handling.
 MAX_TRACKED = 200
 
+# State kept per text-roll trigger message so edits can update the same reply,
+# re-roll only the added dice, and show prior dice lines struck through.
+#   reply   - the Message we sent
+#   rolls   - the raw dice rolled (passed back in as prior_rolls on edit)
+#   text    - the current roll's rendered body (its 'Dice:' line is struck next edit)
+#   history - struck-through 'Dice:' lines from previous versions of this roll
+RollState = collections.namedtuple("RollState", "reply rolls text history")
+
 
 def echo_prefix(dicestr):
     """Quoted-subtext echo of the roll string, shown only for slash commands.
@@ -47,13 +55,27 @@ def echo_prefix(dicestr):
     return f"> -# `{dicestr}`\n"
 
 
+def dice_line(text):
+    """Return the 'Dice: ...' line from a roll's rendered body, or None."""
+    for line in text.split("\n"):
+        if line.startswith("Dice:"):
+            return line.rstrip()
+    return None
+
+
+def render_with_history(history, body):
+    """Stack struck-through history lines (if any) above the current body."""
+    if history:
+        return "\n".join(history) + "\n" + body
+    return body
+
+
 class Roll(commands.Cog):
     """MvK dice-rolling commands."""
 
     def __init__(self, bot):
         self.bot = bot
-        # Text rolls remember `your message id -> (our reply, dice rolled)` so an
-        # edit can update the same reply and re-roll only the dice that changed.
+        # trigger message id -> RollState, for editing text rolls in place.
         self.replies = collections.OrderedDict()
 
     def _plainroller(self, channel_id):
@@ -62,37 +84,50 @@ class Roll(commands.Cog):
         escalation = cog.current_escalation(channel_id) if cog else 0
         return functools.partial(mvkroller.plainroll, escalation=escalation)
 
-    def _remember(self, message_id, reply, rolls):
-        """Track (reply, rolls) for a trigger message, bounding the cache size."""
-        self.replies[message_id] = (reply, rolls)
+    def _remember(self, message_id, state):
+        """Track a RollState for a trigger message, bounding the cache size."""
+        self.replies[message_id] = state
         self.replies.move_to_end(message_id)
         while len(self.replies) > MAX_TRACKED:
             self.replies.popitem(last=False)
 
-    async def _respond_text(self, ctx, content, rolls):
-        """Reply to a text roll, or edit our existing reply if it was edited."""
+    async def _post(self, ctx, content, state):
+        """Reply to a text roll, or edit our existing reply, then store the state."""
         existing = self.replies.get(ctx.message.id)
-        if existing is not None:
-            reply = existing[0]
+        reply = existing.reply if existing else None
+        if reply is not None:
             try:
                 await reply.edit(content=content)
-                self._remember(ctx.message.id, reply, rolls)
-                return
             except discord.HTTPException:
-                pass  # our reply is gone; fall through and post a fresh one
-        reply = await ctx.reply(content)
-        self._remember(ctx.message.id, reply, rolls)
+                reply = None  # our reply is gone; post a fresh one
+        if reply is None:
+            reply = await ctx.reply(content)
+        self._remember(
+            ctx.message.id, RollState(reply, state.rolls, state.text, state.history)
+        )
 
     async def _run_text_roll(self, ctx, roller, dicestr):
-        """Run a roller for a text/mention invocation (reply tracked, prior reused)."""
-        existing = self.replies.get(ctx.message.id)
-        prior = existing[1] if existing else None
+        """Run a roller for a text/mention invocation (tracked, prior reused)."""
+        prev = self.replies.get(ctx.message.id)
+        prior_rolls = prev.rolls if prev else None
+        prior_history = prev.history if prev else []
+        prior_text = prev.text if prev else ""
+
         try:
-            text, rolls = roller(dicestr, prior_rolls=prior)
+            text, rolls = roller(dicestr, prior_rolls=prior_rolls)
         except mvkroller.RollError as exc:
-            await self._respond_text(ctx, exc.getMessage(), None)
+            content = render_with_history(prior_history, exc.getMessage())
+            await self._post(
+                ctx, content, RollState(None, prior_rolls, prior_text, prior_history)
+            )
             raise
-        await self._respond_text(ctx, text, rolls)
+
+        history = list(prior_history)
+        previous = dice_line(prior_text)
+        if previous:
+            history.append(f"-# ~~{previous}~~")
+        content = render_with_history(history, text)
+        await self._post(ctx, content, RollState(None, rolls, text, history))
 
     async def _run_slash_roll(self, interaction, roller, dicestr):
         """Run a roller for a slash invocation (echo the input, no edit tracking)."""

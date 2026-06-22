@@ -305,6 +305,22 @@ class TestRevisions(unittest.TestCase):
         """Slash rolls echo the input as a quoted-subtext inline-code line."""
         self.assertEqual(rollcog.echo_prefix("d20 +7"), "> -# `d20 +7`\n")
 
+    def test_dice_line(self):
+        """dice_line picks out the 'Dice:' line (and ignores a trailing space)."""
+        body = "Dice: 6d10[7, 5, 4, 1, 7, 5] \nTotal: **29**"
+        self.assertEqual(rollcog.dice_line(body), "Dice: 6d10[7, 5, 4, 1, 7, 5]")
+        self.assertIsNone(rollcog.dice_line("Not enough dice to roll"))
+
+    def test_render_with_history(self):
+        """History lines (struck-through) stack above the current body; none if empty."""
+        body = "Dice: 7d10[...] \nTotal: **30**"
+        self.assertEqual(rollcog.render_with_history([], body), body)
+        history = ["-# ~~Dice: 6d10[7, 5, 4, 1, 7, 5]~~"]
+        self.assertEqual(
+            rollcog.render_with_history(history, body),
+            "-# ~~Dice: 6d10[7, 5, 4, 1, 7, 5]~~\n" + body,
+        )
+
     def test_merge_keeps_prior_and_rolls_extra(self):
         """Added dice are rolled fresh; existing dice are kept (earliest first)."""
         merged = roller.merge_rolls({20: [14]}, {20: 2}, random.Random(1))
@@ -312,9 +328,21 @@ class TestRevisions(unittest.TestCase):
         self.assertEqual(merged[20][0], 14)
 
     def test_merge_drops_extra_when_count_decreases(self):
-        """Removing dice keeps the earliest-rolled ones."""
-        merged = roller.merge_rolls({6: [1, 2, 3]}, {6: 1})
-        self.assertEqual(merged[6], [1])
+        """Reducing the count keeps a random subset of the prior rolls."""
+        merged = roller.merge_rolls({6: [1, 2, 3]}, {6: 1}, random.Random(0))
+        self.assertEqual(len(merged[6]), 1)
+        self.assertIn(merged[6][0], [1, 2, 3])
+
+    def test_merge_kept_subset_varies(self):
+        """Which dice are kept when reducing isn't always the same."""
+        prior = {10: [1, 2, 3, 4, 5, 6, 7, 8]}
+        seen = set()
+        for seed in range(20):
+            kept = roller.merge_rolls(prior, {10: 2}, random.Random(seed))[10]
+            self.assertEqual(len(kept), 2)
+            self.assertTrue(set(kept) <= set(prior[10]))
+            seen.add(tuple(sorted(kept)))
+        self.assertGreater(len(seen), 1)
 
     def test_merge_unchanged_counts_reuse_all(self):
         """When counts don't change, every prior die is reused (e.g. only +N edited)."""

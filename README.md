@@ -33,8 +33,10 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
   `/help command:mvkroll`).
 
 Editing a text/mention roll message updates the bot's existing reply and
-re-rolls only the dice you added (existing dice are kept). Slash commands can't
-be edited, so this applies to the `?`/mention forms only.
+re-rolls only the dice you added (existing dice are kept). Each prior `Dice:`
+line is shown above the new result, struck through as small text, so others can
+see what changed. Slash commands can't be edited, so this applies to the
+`?`/mention forms only.
 
 Slash commands are registered with Discord automatically on startup. If you set
 `primary_guilds` (a list of guild/server IDs) in `mvkdicebot.ini`, they are

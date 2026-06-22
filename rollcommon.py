@@ -122,10 +122,11 @@ def roll_dice(dicecounts, rand_source=None):
 def merge_rolls(prior, dicecounts, rand_source=None):
     """Reuse prior per-size rolls, rolling only the newly-added dice.
 
-    For each die size, keep up to ``dicecounts[size]`` of ``prior``'s rolls (the
-    earliest-rolled ones) and roll any additional dice; if the count dropped, the
-    extra prior rolls are discarded. This makes editing a roll re-roll only the
-    dice that were added, leaving the others as they were.
+    For each die size, keep up to ``dicecounts[size]`` of ``prior``'s rolls and
+    roll any additional dice; if the count dropped, a random subset of the prior
+    rolls is kept (so editing down doesn't always discard the same dice). This
+    makes editing a roll re-roll only the dice that were added, leaving the others
+    as they were.
     """
     dicerolls = _empty_dicerolls()
 
@@ -135,7 +136,8 @@ def merge_rolls(prior, dicecounts, rand_source=None):
 
         for size in dicerolls:
             want = dicecounts.get(size, 0)
-            kept = list(prior.get(size, []))[:want]
+            have = list(prior.get(size, []))
+            kept = rand_source.sample(have, want) if want < len(have) else have
             extra = [_roll_one(size, rand_source) for _ in range(want - len(kept))]
             dicerolls[size] = kept + extra
     except Exception as exc:
