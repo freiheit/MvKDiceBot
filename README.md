@@ -28,6 +28,9 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
   slash command) shows it; `+1`/`next` advances a round, `-1`/`back` steps down,
   `reset` starts a new battle, and a number `0`–`6` sets it. A channel's value
   resets to 0 after 12 hours of inactivity.
+- `nextround` — shorthand for advancing the escalation die a round (same as
+  `escalation next`). Available as `?nextround`/`/nextround` (text aliases
+  `?next`/`?n`, plus the `/n` slash command).
 - `help` — auto-generated command list and usage. Available as `?help`,
   `@MvkDiceBot help`, or `/help` (optionally pass a command name, e.g.
   `/help command:mvkroll`).

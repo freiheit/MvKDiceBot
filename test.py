@@ -272,6 +272,8 @@ class TestBotCommands(unittest.TestCase):
             "justroll": "plainroll",
             "esc": "escalation",
             "e": "escalation",
+            "next": "nextround",
+            "n": "nextround",
         }
         for alias, target in aliases.items():
             with self.subTest(alias=alias):
@@ -282,7 +284,17 @@ class TestBotCommands(unittest.TestCase):
     def test_app_commands_in_tree(self):
         """The commands (incl. /r, /p, /help) are present in the application command tree."""
         app_names = {cmd.name for cmd in mvkdicebot.bot.tree.get_commands()}
-        for name in ("mvkroll", "plainroll", "help", "r", "p", "escalation", "esc"):
+        for name in (
+            "mvkroll",
+            "plainroll",
+            "help",
+            "r",
+            "p",
+            "escalation",
+            "esc",
+            "nextround",
+            "n",
+        ):
             with self.subTest(name=name):
                 self.assertIn(name, app_names)
 
