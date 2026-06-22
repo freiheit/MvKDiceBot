@@ -17,216 +17,28 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # https://github.com/freiheit/MvKDiceBot
-"""MvKRoller: Dice roller for the MvKDiceBot"""
+"""MvKRoller: the two top-level dice rollers, mvkroll and plainroll.
 
-import functools
+The supporting helpers live in companion modules: rollcommon (shared parsing,
+rolling, and display), rollmvkhelpers (MvK rules math), and rollplainhelpers
+(plain roll extras). RollError and parse_dice are re-exported here so callers
+can keep using ``mvkroller.RollError`` / ``mvkroller.parse_dice``.
+"""
+
 import logging
-import random
 import re
 
+from rollcommon import RollError, parse_dice, print_dice, roll_dice
+from rollmvkhelpers import (
+    adv_disadv,
+    calc_action,
+    calc_impact,
+    crit_fumble,
+    possible_fumble,
+)
+from rollplainhelpers import parse_math, print_d20_special
+
 logger = logging.getLogger(__name__)
-
-
-class RollError(Exception):
-    """Boring Exception Class"""
-
-    message = ""
-
-    def __init__(self, msg):
-        self.message = msg
-
-    # pylint: disable=invalid-name
-    def getMessage(self):
-        """return this exception's message"""
-        return self.message
-
-
-@functools.cache
-def parse_dice(dicestr: str):
-    """Parses the dice string and returns a dictionary of dieSize->count"""
-    # types of dice we're looking for:
-    dicecounts = {
-        20: 0,
-        12: 0,
-        10: 0,
-        8: 0,
-        6: 0,
-        4: 0,
-    }
-
-    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
-
-    try:
-        for count, size in re.findall(pattern_ndn, dicestr):
-            logger.debug("Roll count=%s size=%s", count, size)
-            size = int(size)
-            if len(count) >= 1:
-                count = int(count)
-            elif len(count) < 1 or int(count) < 1:
-                count = 1
-            if size in dicecounts:
-                dicecounts[size] += count
-            else:
-                raise RollError(f"Invalid dice size d{size}")
-    except Exception as exc:
-        raise RollError("Exception while parsing dice.") from exc
-
-    return dicecounts
-
-
-def roll_dice(dicecounts):
-    """Returns a dictionary of dieSize => rolls[]"""
-    dicerolls = {
-        20: [],
-        12: [],
-        10: [],
-        8: [],
-        6: [],
-        4: [],
-    }
-
-    try:
-        for size, num in dicecounts.items():
-            if num > 0:
-                dicerolls[size] = [random.randint(1, size) for idx in range(0, num)]
-    except Exception as exc:
-        raise RollError("Exception while rolling dice.") from exc
-
-    return dicerolls
-
-
-def print_dice(dicerolls):
-    "Creates a string rep of the rolled dice"
-    answer = "Dice: "
-    try:
-        for size, values in dicerolls.items():
-            if len(values) > 0:
-                answer += f"{len(values)}d{size}{str(values)} "
-        # answer += "\n"
-    except Exception as exc:
-        raise RollError("Coding error displaying Dice") from exc
-
-    return answer
-
-
-def print_d20_special(dicerolls):
-    """Checks for special d20 rules and adds stuff for any special stuff"""
-    answer = ""
-    try:
-        for size, values in dicerolls.items():
-            if len(values) == 1 and size == 20:
-                if values[0] == 1:
-                    answer += "\n1 is **Crit Fumble/Fail**"
-                elif values[0] == 20:
-                    answer += "\n20 is **Crit Success**"
-                elif values[0] % 2 == 0:
-                    answer += " (_Even_)"
-                else:
-                    answer += " (_Odd_)"
-
-                if values[0] == 2:  # separate because also even
-                    answer += "\n_Two-Weapon Hit?_"
-
-    except Exception as exc:
-        raise RollError("Coding error displaying Dice") from exc
-
-    return answer
-
-
-def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
-    """Perform extra work when rolling with advantage or disadvantage"""
-    answer = ""
-    fortunedicerolls = dicerolls[20]
-
-    try:
-        if advantage or disadvantage:
-            logger.debug("Dicecounts %s", dicecounts)
-            logger.debug("Dicerolls %s", dicerolls)
-            answer += "Original d20s: "
-            answer += f"{len(fortunedicerolls)}d20{str(fortunedicerolls)} -- "
-            if advantage:
-                answer += "_Applying advantage_\n\n"
-                dicerolls[20].sort(reverse=True)
-                logger.debug("Advantage rolls %s", dicerolls[20])
-            if disadvantage:
-                answer += "_Applying disadvantage_\n\n"
-                dicerolls[20].sort()
-                logger.debug("Disadvantage rolls %s", dicerolls[20])
-            dicerolls[20] = [dicerolls[20][0]]
-    except Exception as exc:
-        raise RollError("Coding error calculating advantage or disadvantage.") from exc
-
-    return answer, dicerolls[20]
-
-
-def calc_action(fortunedicerolls, characterdicerolls):
-    """Compute the action total, using up to one d20 and the highest character die roll."""
-    try:
-        action_dice = fortunedicerolls + characterdicerolls
-        action_dice.sort(reverse=True)
-        action_dice = action_dice[:2]
-        answer = f"**Action Total: {str(sum(action_dice))}** {str(action_dice)}\n"
-    except Exception as exc:
-        raise RollError(
-            "Coding error flattening dice rolls and creating total."
-        ) from exc
-    return answer
-
-
-def calc_impact(fortunedicerolls, characterdicerolls):
-    """Calculate the impact total"""
-    try:
-        # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
-        fortuneimpact = 1 if fortunedicerolls[0] >= 4 else 0
-        doublecharacterimpact = sum(2 for p in characterdicerolls if p >= 10)
-        characterimpact = sum(1 for p in characterdicerolls if 4 <= p < 10)
-        impact = fortuneimpact + doublecharacterimpact + characterimpact
-        impact = max(impact, 1)
-        answer = f"**Impact: {impact}** "
-        answer += (
-            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
-        )
-    except Exception as exc:
-        raise RollError("Coding error calculating Impact") from exc
-    return answer
-
-
-def crit_fumble(fortunedicerolls, characterdicerolls):
-    """Check if we had a critical fumble. If so, add output and discard lowest non-1 die"""
-    answer = ""
-    newdicerolls = characterdicerolls
-    if fortunedicerolls[0] == 1:
-        answer += "**Critical Fumble**\n"
-        characterdicerolls.sort()
-        newdicerolls = []
-        scratched = False
-        for i in characterdicerolls:
-            if scratched:
-                newdicerolls.append(i)
-            elif i == 1:
-                newdicerolls.append(i)
-            else:
-                scratched = True
-                answer += f"*Scratched {i}*\n"
-                # no append because scratching this die
-
-        answer += "**Gain 1 inspiration point**\n"
-        answer += f"New character dice: {newdicerolls}\n"
-    return answer, newdicerolls
-
-
-def possible_fumble(fortunedicerolls):
-    """
-    You also critically fumble if your action is successfully countered
-    and you roll a 1-3 on the d20
-    """
-    answer = ""
-    if fortunedicerolls[0] <= 3:
-        answer += "**Possible Critical Fumble**\n"
-        answer += (
-            "If your action is successfully countered, gain 1 inspiration point.\n"
-        )
-    return answer
 
 
 def mvkroll(dicestr: str):
@@ -296,19 +108,6 @@ def mvkroll(dicestr: str):
     answer += calc_impact(fortunedicerolls, characterdicerolls)
 
     return answer
-
-
-def parse_math(dicestr: str):
-    """Look for +N and -N things to get a total change"""
-
-    pattern_math = re.compile(r"([+-][0-9]+)")
-
-    amount = 0
-
-    for addstr in re.findall(pattern_math, dicestr):
-        amount += int(addstr)
-
-    return amount
 
 
 def plainroll(dicestr: str):
