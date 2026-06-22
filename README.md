@@ -22,6 +22,11 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
 - `plainroll` — just rolls dice and adds up `+N`/`-N` modifiers. For a single
   d20 it also calls out 13th Age-flavored results (crit, fumble, even/odd,
   possible two-weapon hit). Also available as the slash command `/p`.
+- `escalation` — tracks the 13th Age escalation die (0–6) for the current
+  channel. `?escalation`/`/escalation` (text aliases `?esc`/`?e`, plus the `/esc`
+  slash command) shows it; `+1`/`next` advances a round, `-1`/`back` steps down,
+  `reset` starts a new battle, and a number `0`–`6` sets it. A channel's value
+  resets to 0 after 12 hours of inactivity.
 - `help` — auto-generated command list and usage. Available as `?help`,
   `@MvkDiceBot help`, or `/help` (optionally pass a command name, e.g.
   `/help command:mvkroll`).

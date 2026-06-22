@@ -23,6 +23,7 @@ import random
 import sys
 import unittest
 
+import escalationcog
 import mvkdicebot
 import mvkroller as roller
 import rollcog
@@ -241,6 +242,8 @@ class TestBotCommands(unittest.TestCase):
             "roll": "mvkroll",
             "p": "plainroll",
             "justroll": "plainroll",
+            "esc": "escalation",
+            "e": "escalation",
         }
         for alias, target in aliases.items():
             with self.subTest(alias=alias):
@@ -251,7 +254,7 @@ class TestBotCommands(unittest.TestCase):
     def test_app_commands_in_tree(self):
         """The commands (incl. /r, /p, /help) are present in the application command tree."""
         app_names = {cmd.name for cmd in mvkdicebot.bot.tree.get_commands()}
-        for name in ("mvkroll", "plainroll", "help", "r", "p"):
+        for name in ("mvkroll", "plainroll", "help", "r", "p", "escalation", "esc"):
             with self.subTest(name=name):
                 self.assertIn(name, app_names)
 
@@ -304,6 +307,76 @@ class TestRollEcho(unittest.TestCase):
         with self.assertRaises(roller.RollError):
             asyncio.run(rollcog._do_roll(send, boom, "d99", echo_input=True))
         self.assertEqual(captured, ["> -# `d99`\nbad dice"])
+
+
+class TestEscalation(unittest.TestCase):
+    """Test the escalation-die value logic and the inactivity expiry."""
+
+    def test_next_value_increment_caps(self):
+        """+1/up/next increment but never exceed the maximum."""
+        for action in ("+", "+1", "up", "next", "advance"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(0, action), 1)
+                self.assertEqual(escalationcog.next_value(3, action), 4)
+                self.assertEqual(
+                    escalationcog.next_value(escalationcog.MAX_VALUE, action),
+                    escalationcog.MAX_VALUE,
+                )
+
+    def test_next_value_decrement_floors(self):
+        """-1/down/back decrement but never go below 0."""
+        for action in ("-", "-1", "down", "back"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(3, action), 2)
+                self.assertEqual(escalationcog.next_value(0, action), 0)
+
+    def test_next_value_reset_and_set(self):
+        """reset/new/end go to 0; a bare number sets directly."""
+        for action in ("reset", "new", "end", "0"):
+            with self.subTest(action=action):
+                self.assertEqual(escalationcog.next_value(5, action), 0)
+        self.assertEqual(escalationcog.next_value(0, "3"), 3)
+        self.assertEqual(escalationcog.next_value(2, "6"), 6)
+
+    def test_next_value_bad_input(self):
+        """Out-of-range or unrecognized actions raise ValueError."""
+        for action in ("7", "99", "+2", "banana", "-3"):
+            with self.subTest(action=action), self.assertRaises(ValueError):
+                escalationcog.next_value(0, action)
+
+    def test_tracker_per_key_isolation(self):
+        """Different channels track independent values."""
+        tracker = escalationcog.EscalationTracker(now=lambda: 0.0)
+        tracker.set("a", 3)
+        tracker.set("b", 5)
+        self.assertEqual(tracker.get("a"), 3)
+        self.assertEqual(tracker.get("b"), 5)
+        self.assertEqual(tracker.get("never-set"), 0)
+
+    def test_tracker_expiry(self):
+        """A value lapses back to 0 once it has gone untouched past EXPIRY."""
+        clock = {"t": 1000.0}
+        tracker = escalationcog.EscalationTracker(now=lambda: clock["t"], expiry=100)
+        tracker.set("chan", 4)
+        clock["t"] += 50  # still fresh
+        self.assertEqual(tracker.get("chan"), 4)
+        clock["t"] += 100  # now 150s since set, past the 100s expiry
+        self.assertEqual(tracker.get("chan"), 0)
+
+    def test_format_value(self):
+        """Formatting uses a header, a keycap emoji, and a subtext detail line."""
+        zero = escalationcog.format_value(0)
+        self.assertIn("## Escalation Die Is", zero)
+        self.assertIn(":zero:", zero)
+        self.assertIn("No bonus yet", zero)
+
+        three = escalationcog.format_value(3)
+        self.assertIn(":three:", three)
+        self.assertIn("+3", three)
+
+        maxed = escalationcog.format_value(escalationcog.MAX_VALUE)
+        self.assertIn(":six:", maxed)
+        self.assertIn("maximum", maxed)
 
 
 if __name__ == "__main__":
