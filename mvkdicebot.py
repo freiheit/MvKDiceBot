@@ -98,6 +98,26 @@ async def on_ready():
     logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
 
 
+@bot.tree.error
+async def on_app_command_error(interaction, error):
+    """Log slash-command errors and make sure the interaction gets a reply.
+
+    A slash command acknowledges Discord by responding to the interaction.
+    Without this, an unexpected error (or a too-long response) before that
+    happens leaves the interaction unanswered, which Discord shows the user as
+    "This interaction failed". If the command already replied (e.g. a RollError
+    message), is_done() is true and we only log.
+    """
+    logger.error("Error in application command %s", interaction.command, exc_info=error)
+    if not interaction.response.is_done():
+        try:
+            await interaction.response.send_message(
+                "Sorry, something went wrong running that command.", ephemeral=True
+            )
+        except discord.HTTPException:
+            logger.exception("Failed to send application command error message")
+
+
 def main():
     """Load configuration and run the bot."""
     config = mvkconfig.get_config()
