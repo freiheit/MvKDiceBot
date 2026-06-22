@@ -32,17 +32,24 @@ MVK_DICE_HELP = (
 PLAIN_DICE_HELP = "Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
 
 
-async def _do_roll(send, roll_func, dicestr):
+async def _do_roll(send, roll_func, dicestr, echo_input=False):
     """Run a roller and send its output (or the error message) via ``send``.
 
     ``send`` is a coroutine that takes a single string: ``ctx.reply`` for the
     text/hybrid commands or ``interaction.response.send_message`` for the slash
     aliases. Re-raises RollError after reporting it so it is still logged.
+
+    When ``echo_input`` is set, the original roll string is prepended as a
+    quoted subtext line with the input in inline code (``> -# `...` ``). Slash
+    commands enable this because, unlike a text reply, the invocation isn't
+    otherwise visible to the channel; the backticks also stop any markdown or
+    mentions in the echoed string from being interpreted.
     """
+    prefix = f"> -# `{dicestr}`\n" if echo_input else ""
     try:
-        await send(roll_func(dicestr))
+        await send(prefix + roll_func(dicestr))
     except mvkroller.RollError as exc:
-        await send(exc.getMessage())
+        await send(prefix + exc.getMessage())
         raise
 
 
@@ -69,7 +76,12 @@ class Roll(commands.Cog):
 
         Ignores anything extra it doesn't understand.
         """
-        await _do_roll(ctx.reply, mvkroller.mvkroll, dicestr)
+        await _do_roll(
+            ctx.reply,
+            mvkroller.mvkroll,
+            dicestr,
+            echo_input=ctx.interaction is not None,
+        )
 
     @commands.hybrid_command(
         aliases=[
@@ -105,7 +117,12 @@ class Roll(commands.Cog):
         advantage/disadvantage, since in many rules and situations an 18 might
         be better than a 19 or a 2 better than a 16.
         """
-        await _do_roll(ctx.reply, mvkroller.plainroll, dicestr)
+        await _do_roll(
+            ctx.reply,
+            mvkroller.plainroll,
+            dicestr,
+            echo_input=ctx.interaction is not None,
+        )
 
     # Discord application commands have no alias mechanism, so the short '/r' and
     # '/p' forms are registered as their own slash commands that reuse the rollers.
@@ -115,7 +132,12 @@ class Roll(commands.Cog):
     @app_commands.describe(dicestr=MVK_DICE_HELP)
     async def mvkroll_slash_alias(self, interaction: discord.Interaction, dicestr: str):
         """Slash-command alias (/r) for /mvkroll."""
-        await _do_roll(interaction.response.send_message, mvkroller.mvkroll, dicestr)
+        await _do_roll(
+            interaction.response.send_message,
+            mvkroller.mvkroll,
+            dicestr,
+            echo_input=True,
+        )
 
     @app_commands.command(
         name="p", description="Roll a dice pool and total it (same as /plainroll)"
@@ -125,7 +147,12 @@ class Roll(commands.Cog):
         self, interaction: discord.Interaction, dicestr: str
     ):
         """Slash-command alias (/p) for /plainroll."""
-        await _do_roll(interaction.response.send_message, mvkroller.plainroll, dicestr)
+        await _do_roll(
+            interaction.response.send_message,
+            mvkroller.plainroll,
+            dicestr,
+            echo_input=True,
+        )
 
 
 async def setup(bot):

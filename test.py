@@ -25,6 +25,7 @@ import unittest
 
 import mvkdicebot
 import mvkroller as roller
+import rollcog
 
 
 class TestRoller(unittest.TestCase):
@@ -245,6 +246,45 @@ class TestBotCommands(unittest.TestCase):
     def test_setup_hook_is_callable(self):
         """The startup sync hook is wired up."""
         self.assertTrue(callable(mvkdicebot.bot.setup_hook))
+
+
+class TestRollEcho(unittest.TestCase):
+    """Test the optional input echo used by the slash commands."""
+
+    @staticmethod
+    def _capture():
+        """Return (captured_list, async send) that records what was sent."""
+        captured = []
+
+        async def send(msg):
+            captured.append(msg)
+
+        return captured, send
+
+    def test_echo_prepends_input(self):
+        """echo_input prepends the roll string as a '-# ' subtext line."""
+        captured, send = self._capture()
+        asyncio.run(
+            rollcog._do_roll(send, lambda s: "RESULT", "d20 +7", echo_input=True)
+        )
+        self.assertEqual(captured, ["> -# `d20 +7`\nRESULT"])
+
+    def test_no_echo_by_default(self):
+        """Without echo_input the output is unchanged (the text-command case)."""
+        captured, send = self._capture()
+        asyncio.run(rollcog._do_roll(send, lambda s: "RESULT", "d20 +7"))
+        self.assertEqual(captured, ["RESULT"])
+
+    def test_echo_on_error(self):
+        """The echo line is also prepended to a RollError message, then re-raised."""
+        captured, send = self._capture()
+
+        def boom(_):
+            raise roller.RollError("bad dice")
+
+        with self.assertRaises(roller.RollError):
+            asyncio.run(rollcog._do_roll(send, boom, "d99", echo_input=True))
+        self.assertEqual(captured, ["> -# `d99`\nbad dice"])
 
 
 if __name__ == "__main__":
