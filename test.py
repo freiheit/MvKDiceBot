@@ -18,6 +18,8 @@
 # https://github.com/freiheit/MvKDiceBot
 """Test module for MvKDiceBot"""
 
+import asyncio
+import sys
 import unittest
 
 import mvkdicebot
@@ -65,11 +67,22 @@ class TestRoller(unittest.TestCase):
 class TestBotCommands(unittest.TestCase):
     """Test that the bot exposes both prefix and slash (app) commands.
 
-    Importing mvkdicebot only registers the commands; the bot never connects to
-    Discord here, so the live sync in setup_hook can't be unit-tested. The
-    runtime confirmation of a successful sync is the "Synced N application
-    command(s)" log line emitted on startup.
+    The commands live in cogs that setup_hook loads as extensions at startup;
+    here we load those extensions explicitly (the bot never connects to Discord,
+    so the live sync can't be unit-tested -- its runtime confirmation is the
+    "Synced N application command(s)" log line emitted on startup).
     """
+
+    @classmethod
+    def setUpClass(cls):
+        """Load the command cogs the same way setup_hook would."""
+
+        async def _load():
+            for extension in mvkdicebot.EXTENSIONS:
+                if extension not in mvkdicebot.bot.extensions:
+                    await mvkdicebot.bot.load_extension(extension)
+
+        asyncio.run(_load())
 
     def test_prefix_commands_registered(self):
         """The primary command names resolve as text/prefix commands."""
@@ -100,7 +113,10 @@ class TestBotCommands(unittest.TestCase):
 
     def test_help_command_routes_through_context(self):
         """The help command sends through the context so /help can reuse it."""
-        self.assertIsInstance(mvkdicebot.bot.help_command, mvkdicebot.HybridHelpCommand)
+        # Reference the class via the loaded extension module: load_extension
+        # replaces sys.modules["helpcog"], so a top-level import would be stale.
+        help_cls = sys.modules["helpcog"].HybridHelpCommand
+        self.assertIsInstance(mvkdicebot.bot.help_command, help_cls)
 
     def test_setup_hook_is_callable(self):
         """The startup sync hook is wired up."""
