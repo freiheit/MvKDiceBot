@@ -31,13 +31,13 @@ def print_d20_special(dicerolls):
         for size, values in dicerolls.items():
             if len(values) == 1 and size == 20:
                 if values[0] == 1:
-                    answer += "\n1 is **Crit Fumble/Fail**"
+                    answer += " **(Crit Fumble/Fail)**"
                 elif values[0] == 20:
-                    answer += "\n20 is **Crit Success**"
+                    answer += " **(Crit Success)**"
                 elif values[0] % 2 == 0:
-                    answer += " (_Even_)"
+                    answer += " _(Even)_"
                 else:
-                    answer += " (_Odd_)"
+                    answer += " _(Odd)_"
 
                 if values[0] == 2:  # separate because also even
                     answer += "\n_Two-Weapon Hit?_"
