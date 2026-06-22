@@ -24,6 +24,7 @@ import warnings
 from configparser import ConfigParser
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 import mvkroller
@@ -31,6 +32,9 @@ import mvkroller
 __version__ = "1.0.0"
 DESCRIPTION = """A dice rolling bot for MvK
 """
+
+# Module-level logger; level/handlers are configured in get_config().
+logger = logging.getLogger(__name__)
 
 intents = discord.Intents.default()
 # intents.members = True
@@ -45,6 +49,23 @@ bot = commands.AutoShardedBot(
 
 
 @bot.event
+async def setup_hook():
+    """Register application (slash) commands with Discord on startup.
+
+    The commands are declared as hybrid commands, so discord.py already has the
+    slash-command definitions in the command tree; syncing tells Discord about
+    them. This is a global sync, which can take up to ~1 hour to propagate the
+    first time.
+    """
+    try:
+        synced = await bot.tree.sync()
+        # pylint: disable=logging-not-lazy
+        logger.warning("Synced %d application command(s)", len(synced))
+    except Exception:  # pylint: disable=broad-except
+        logger.exception("Failed to sync application commands")
+
+
+@bot.event
 async def on_ready():
     """Log when we start up"""
     # pylint: disable=logging-fstring-interpolation
@@ -52,8 +73,14 @@ async def on_ready():
 
 
 @bot.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])  # pylint: disable=no-member
+@app_commands.describe(
+    dicestr="Dice to roll, e.g. '1d20 2d10 d8 2d6'. Add 'advantage'/'disadvantage' for the d20."
+)
 async def mvkroll(ctx, *, dicestr: str):
     """Rolls NdN format pool of dice and does MvK rules math for you.
+
+    Usable as the '?roll'/'@MvkDiceBot roll' text command or the '/mvkroll'
+    slash command.
 
     Example: '?roll 1d20 2d10 d8 2d6'
 
@@ -75,8 +102,14 @@ async def mvkroll(ctx, *, dicestr: str):
 @bot.hybrid_command(
     aliases=["p", "d", "D", "P", "pr", "PR", "justroll", "justdice", "plain", "dice"]
 )  # pylint: disable=no-member
+@app_commands.describe(
+    dicestr="Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
+)
 async def plainroll(ctx, *, dicestr: str):
     """Rolls NdN format pool of dice. Only accepts d20, d12, d10, d8, d6 and d4 dice.
+
+    Usable as the '?p'/'@MvkDiceBot plainroll' text command or the '/plainroll'
+    slash command.
 
     For single d20, may call out likely special things like 20=crit, 1=fail, even and odd.
 
@@ -118,8 +151,7 @@ DEFAULT_CONFIG_PATHS = [
 
 
 def get_config():
-    """Find and parse our config"""
-    # pylint: disable=redefined-outer-name
+    """Find and parse our config, configuring logging as a side effect."""
     config = ConfigParser()
     config_paths = []
 
@@ -144,18 +176,23 @@ def get_config():
         log_level = logging.ERROR
 
     logging.basicConfig(level=log_level)
-    logger = logging.getLogger(__name__)
     logger.setLevel(log_level)
     warnings.resetwarnings()
     logger.addHandler(logging.StreamHandler())
 
-    return config, logger
+    return config
 
 
-config, logger = get_config()
+def main():
+    """Load configuration and run the bot."""
+    config = get_config()
 
-bot.run(
-    token=config["MAIN"].get("authtoken"),
-    reconnect=True,
-    log_level=logging.WARNING,
-)
+    bot.run(
+        token=config["MAIN"].get("authtoken"),
+        reconnect=True,
+        log_level=logging.WARNING,
+    )
+
+
+if __name__ == "__main__":
+    main()

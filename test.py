@@ -20,6 +20,7 @@
 
 import unittest
 
+import mvkdicebot
 import mvkroller as roller
 
 
@@ -59,6 +60,46 @@ class TestRoller(unittest.TestCase):
         for dstring in strings:
             with self.subTest(dstring=dstring), self.assertRaises(roller.RollError):
                 roller.parse_dice(dstring)
+
+
+class TestBotCommands(unittest.TestCase):
+    """Test that the bot exposes both prefix and slash (app) commands.
+
+    Importing mvkdicebot only registers the commands; the bot never connects to
+    Discord here, so the live sync in setup_hook can't be unit-tested. The
+    runtime confirmation of a successful sync is the "Synced N application
+    command(s)" log line emitted on startup.
+    """
+
+    def test_prefix_commands_registered(self):
+        """The primary command names resolve as text/prefix commands."""
+        for name in ("mvkroll", "plainroll"):
+            with self.subTest(name=name):
+                self.assertIsNotNone(mvkdicebot.bot.get_command(name))
+
+    def test_aliases_still_work(self):
+        """The legacy aliases still resolve to their commands."""
+        aliases = {
+            "r": "mvkroll",
+            "roll": "mvkroll",
+            "p": "plainroll",
+            "justroll": "plainroll",
+        }
+        for alias, target in aliases.items():
+            with self.subTest(alias=alias):
+                command = mvkdicebot.bot.get_command(alias)
+                self.assertIsNotNone(command)
+                self.assertEqual(command.name, target)
+
+    def test_app_commands_in_tree(self):
+        """The hybrid commands are present in the application command tree."""
+        app_names = {cmd.name for cmd in mvkdicebot.bot.tree.get_commands()}
+        self.assertIn("mvkroll", app_names)
+        self.assertIn("plainroll", app_names)
+
+    def test_setup_hook_is_callable(self):
+        """The startup sync hook is wired up."""
+        self.assertTrue(callable(mvkdicebot.bot.setup_hook))
 
 
 if __name__ == "__main__":
