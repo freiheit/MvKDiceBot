@@ -101,6 +101,11 @@ def mvkroll(dicestr: str, prior_rolls=None):
         dicecounts[20] = 1
         answer += "_No advantage/disadvantage, setting 1d20_\n"
 
+    # Stress reduces/scratches the highest character die *type* before rolling.
+    stress_answer, dicecounts = stress_adjust(
+        dicecounts, mods.overwhelmed, mods.staggered
+    )
+
     if prior_rolls is None:
         dicerolls = roll_dice(dicecounts)
     else:
@@ -120,16 +125,12 @@ def mvkroll(dicestr: str, prior_rolls=None):
     )
     answer += adv_disadv_answer
 
-    # Show the pool as rolled, then let stress reduce/scratch the highest die.
+    # Note any stress change, then show the (already stress-adjusted) pool.
+    answer += stress_answer
     answer += print_dice(dicerolls)
     answer += "\n"
 
-    stress_answer, dicerolls = stress_adjust(
-        dicerolls, mods.overwhelmed, mods.staggered
-    )
-    answer += stress_answer
-
-    # dice d4-d12 are called "Character Dice"; grab them after any stress change
+    # dice d4-d12 are called "Character Dice"
     characterdicerolls = [
         val for (key, rollset) in dicerolls.items() if key != 20 for val in rollset
     ]

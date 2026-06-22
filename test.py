@@ -270,46 +270,38 @@ class TestRoller(unittest.TestCase):
         self.assertIn("cannot inflict stress", fail)
 
     def test_stress_reduce(self):
-        """Overwhelmed OR Staggered reduces the highest character die one size."""
-        rolls = {20: [15], 12: [], 10: [9], 8: [3], 6: [], 4: []}
-        answer, out = roller.stress_adjust(rolls, True, False, random.Random(7))
-        self.assertIn("Reduced highest die: d10[9]", answer)
-        # The d10[9] is gone and a d8 was rerolled in; the d20 is untouched.
-        self.assertEqual(out[10], [])
-        self.assertEqual(len(out[8]), 2)
-        self.assertEqual(out[20], [15])
+        """Overwhelmed OR Staggered reduces the highest character die type pre-roll."""
+        counts = {20: 1, 12: 0, 10: 1, 8: 1, 6: 0, 4: 0}
+        answer, out = roller.stress_adjust(counts, True, False)
+        self.assertIn("Reduced highest die: d10 → d8", answer)
+        # The d10 became a d8 (so 2d8 now); the d20 is untouched.
+        self.assertEqual(out[10], 0)
+        self.assertEqual(out[8], 2)
+        self.assertEqual(out[20], 1)
 
     def test_stress_reduce_d4_removed(self):
         """Reducing a d4 drops it from the pool entirely."""
-        rolls = {20: [10], 12: [], 10: [], 8: [], 6: [], 4: [3]}
-        answer, out = roller.stress_adjust(rolls, False, True, random.Random(1))
-        self.assertIn("→ removed", answer)
-        self.assertEqual(out[4], [])
+        counts = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 1}
+        answer, out = roller.stress_adjust(counts, False, True)
+        self.assertIn("d4 → removed", answer)
+        self.assertEqual(out[4], 0)
 
     def test_stress_scratch(self):
-        """Overwhelmed AND Staggered scratches the highest character die."""
-        rolls = {20: [18], 12: [11], 10: [9], 8: [], 6: [], 4: []}
-        answer, out = roller.stress_adjust(rolls, True, True, random.Random(0))
-        self.assertIn("Scratched highest die: 11", answer)
-        self.assertEqual(out[12], [])
-        self.assertEqual(out[10], [9])
-
-    def test_stress_tiebreak_prefers_larger_die(self):
-        """On a tie the larger die size is the one adjusted."""
-        rolls = {20: [5], 12: [], 10: [6], 8: [], 6: [6], 4: []}
-        answer, out = roller.stress_adjust(rolls, True, True, random.Random(0))
-        self.assertIn("Scratched highest die: 6", answer)
-        self.assertEqual(out[10], [])
-        self.assertEqual(out[6], [6])
+        """Overwhelmed AND Staggered scratches the highest character die type."""
+        counts = {20: 1, 12: 1, 10: 1, 8: 0, 6: 0, 4: 0}
+        answer, out = roller.stress_adjust(counts, True, True)
+        self.assertIn("Scratched highest die: d12", answer)
+        self.assertEqual(out[12], 0)
+        self.assertEqual(out[10], 1)
 
     def test_stress_no_op_and_no_character_dice(self):
         """No stress flags is a no-op; stress with only a d20 changes nothing."""
-        rolls = {20: [15], 12: [], 10: [4], 8: [], 6: [], 4: []}
-        self.assertEqual(roller.stress_adjust(rolls, False, False)[0], "")
-        only_d20 = {20: [15], 12: [], 10: [], 8: [], 6: [], 4: []}
+        counts = {20: 1, 12: 0, 10: 1, 8: 0, 6: 0, 4: 0}
+        self.assertEqual(roller.stress_adjust(counts, False, False)[0], "")
+        only_d20 = {20: 1, 12: 0, 10: 0, 8: 0, 6: 0, 4: 0}
         answer, out = roller.stress_adjust(only_d20, True, False)
         self.assertIn("No character dice", answer)
-        self.assertEqual(out[20], [15])
+        self.assertEqual(out[20], 1)
 
 
 class TestBotCommands(unittest.TestCase):

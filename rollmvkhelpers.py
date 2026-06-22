@@ -20,14 +20,13 @@
 """Helpers specific to the MvK ruleset roller (mvkroll)."""
 
 import logging
-import random
 
-from rollcommon import RollError, _roll_one
+from rollcommon import RollError
 
 logger = logging.getLogger(__name__)
 
-# Die sizes a character die can be reduced to, in order (the fortune d20 is
-# never reduced). Reducing a d4 drops it from the pool entirely.
+# The next-smaller size a character die reduces to (the fortune d20 is never
+# reduced). Reducing a d4 drops it from the pool entirely.
 _SMALLER_SIZE = {12: 10, 10: 8, 8: 6, 6: 4, 4: None}
 
 
@@ -178,61 +177,42 @@ def compare_counter(action_total, counter):
     )
 
 
-def _highest_character_die(dicerolls):
-    """(size, value) of the highest-result character die, or None if there are none.
+def stress_adjust(dicecounts, overwhelmed, staggered):
+    """Apply Overwhelmed/Staggered stress to the dice pool *before* it is rolled.
 
-    Ties on value are broken toward the larger die size.
-    """
-    best = None  # (value, size)
-    for size, values in dicerolls.items():
-        if size == 20:
-            continue
-        for value in values:
-            if best is None or (value, size) > best:
-                best = (value, size)
-    if best is None:
-        return None
-    value, size = best
-    return size, value
-
-
-def stress_adjust(dicerolls, overwhelmed, staggered, rand_source=None):
-    """Apply 13th-Age-style stress to the pool, mutating ``dicerolls`` in place.
-
-    Overwhelmed OR Staggered reduces the highest character die one size and
-    rerolls it (a d4 is removed outright); Overwhelmed AND Staggered scratches
-    the highest character die instead. The fortune d20 is never touched. Returns
-    ``(answer, dicerolls)``; the answer is empty when neither condition applies.
+    Stress targets the largest character die in the pool (the fortune d20 is
+    never reduced). Overwhelmed OR Staggered reduces that die one size, so it is
+    then rolled at the smaller size (a d4 is removed from the pool entirely);
+    Overwhelmed AND Staggered scratches it (removed before any roll, per the
+    rulebook's "scratch the highest die in your pool before making any roll").
+    Mutates and returns ``(answer, dicecounts)``; the answer is empty when
+    neither condition applies.
     """
     if not (overwhelmed or staggered):
-        return "", dicerolls
+        return "", dicecounts
 
     try:
-        highest = _highest_character_die(dicerolls)
-        if highest is None:
-            return "**Stress**\n-# No character dice to reduce.\n", dicerolls
+        size = next((s for s in (12, 10, 8, 6, 4) if dicecounts.get(s, 0) > 0), None)
+        if size is None:
+            return "**Stress**\n-# No character dice to reduce.\n", dicecounts
 
-        size, value = highest
-        dicerolls[size].remove(value)
+        dicecounts[size] -= 1
 
         if overwhelmed and staggered:
             return (
-                f"**Stress: Overwhelmed & Staggered**\n*Scratched highest die: {value}*\n",
-                dicerolls,
+                f"**Stress: Overwhelmed & Staggered**\n*Scratched highest die: d{size}*\n",
+                dicecounts,
             )
 
-        if rand_source is None:
-            rand_source = random.Random()
         smaller = _SMALLER_SIZE[size]
         if smaller is None:
-            detail = f"d{size}[{value}] → removed"
+            detail = f"d{size} → removed"
         else:
-            new_value = _roll_one(smaller, rand_source)
-            dicerolls[smaller].append(new_value)
-            detail = f"d{size}[{value}] → d{smaller}[{new_value}]"
+            dicecounts[smaller] += 1
+            detail = f"d{size} → d{smaller}"
         return (
             f"**Stress: Overwhelmed/Staggered**\n*Reduced highest die: {detail}*\n",
-            dicerolls,
+            dicecounts,
         )
     except Exception as exc:
         raise RollError("Coding error applying stress.") from exc

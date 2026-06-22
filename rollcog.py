@@ -155,8 +155,8 @@ class Roll(commands.Cog):
         Example: '?roll 2d20 2d10 advantage'
         Example: '?roll 2d20 2d10 disadvantage'
 
-        Add 'overwhelmed' or 'staggered' (stress) to reduce your highest die; both
-        together scratch it instead.
+        Add 'overwhelmed' or 'staggered' (stress) to reduce your largest die one
+        size before rolling; both together scratch it instead.
         Add 'vs N' (or 'counter N') to compare your action total to a counter.
         Example: '?roll 1d20 2d10 overwhelmed vs 21'
 
