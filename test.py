@@ -65,6 +65,25 @@ class TestRoller(unittest.TestCase):
             with self.subTest(dstring=dstring), self.assertRaises(roller.RollError):
                 roller.parse_dice(dstring)
 
+    def test_parse_math(self):
+        """+N/-N modifiers are summed, tolerating whitespace after the sign."""
+        cases = {
+            "": 0,
+            "d20": 0,
+            "+7": 7,
+            "+ 7": 7,
+            "+  7": 7,
+            "-3": -3,
+            "- 3": -3,
+            "d20+7": 7,
+            "d20 + 7": 7,
+            "+5 +2": 7,
+            "+5 - 2": 3,
+        }
+        for dstring, expected in cases.items():
+            with self.subTest(dstring=dstring):
+                self.assertEqual(roller.parse_math(dstring), expected)
+
     def test_roller_exception(self):
         """Ensure RollError exceptions carry messages properly."""
         msg = "this is a message"

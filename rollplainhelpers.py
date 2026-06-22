@@ -49,13 +49,17 @@ def print_d20_special(dicerolls):
 
 
 def parse_math(dicestr: str):
-    """Look for +N and -N things to get a total change"""
+    """Look for +N and -N things to get a total change.
 
-    pattern_math = re.compile(r"([+-][0-9]+)")
+    Whitespace between the sign and the number is allowed, so '+7', '+ 7', and
+    '+  7' are all equivalent.
+    """
+
+    pattern_math = re.compile(r"([+-])\s*([0-9]+)")
 
     amount = 0
 
-    for addstr in re.findall(pattern_math, dicestr):
-        amount += int(addstr)
+    for sign, num in re.findall(pattern_math, dicestr):
+        amount += int(sign + num)
 
     return amount
