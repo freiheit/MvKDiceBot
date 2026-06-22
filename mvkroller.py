@@ -39,6 +39,7 @@ from rollcommon import (
 )
 from rollmvkhelpers import (
     adv_disadv,
+    boost_reduce,
     calc_action,
     calc_impact,
     compare_counter,
@@ -51,28 +52,86 @@ from rollplainhelpers import parse_math, print_d20_special
 
 logger = logging.getLogger(__name__)
 
+# Tokens that look like dice (``boost d8`` / ``reduce d4``) but name a target for
+# a keyword rather than a die to roll; stripped before the pool is parsed.
+BOOST_REDUCE_RE = re.compile(r"\b(?:boost|reduce)\s*d[0-9]+", flags=re.IGNORECASE)
+
 # Roll-string modifiers mvkroll understands beyond the dice themselves.
 Modifiers = collections.namedtuple(
-    "Modifiers", "advantage disadvantage overwhelmed staggered counter"
+    "Modifiers",
+    "advantage disadvantage overwhelmed staggered counter "
+    "action_mod impact_mod boosts reduces burnout",
 )
 
 
-def _parse_modifiers(dicestr):
-    """Pull advantage/disadvantage, stress, and an optional counter from the string.
+def _impact_modifier(dicestr):
+    """Sum ``impact +N`` / ``+N impact`` modifiers and return (total, leftover_text).
 
-    "disadvantage" contains "advantage", so disadvantage wins when both appear
-    (matching the rules: advantage and disadvantage cancel out, and a lone
-    disadvantage must not also register as advantage).
+    The matched substrings are blanked out of the returned text so the remaining
+    +/- numbers can be read as action-total modifiers without double counting.
     """
-    disadvantage = bool(re.search(r"disadvantage", dicestr, flags=re.IGNORECASE))
+    impact_mod = 0
+    text = dicestr
+    # Match "+N impact" (number before) before "impact +N" (number after), so a
+    # string like "+2 impact -1" reads as +2 impact and -1 action, not -1 impact.
+    for pattern in (r"([+-])\s*([0-9]+)\s*impact", r"impact\s*([+-])\s*([0-9]+)"):
+        for sign, num in re.findall(pattern, text, flags=re.IGNORECASE):
+            impact_mod += int(sign + num)
+        text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+    return impact_mod, text
+
+
+def _parse_modifiers(dicestr):
+    """Pull every non-dice modifier mvkroll understands out of the roll string.
+
+    Recognizes advantage/disadvantage, Overwhelmed/Staggered stress, an optional
+    counter (``vs N``), flat action-total (`+N`/`-N`) and impact (``impact +N``)
+    modifiers, ``boost dN``/``reduce dN``, ``burnout``, and the named effects
+    ``unstable`` (-1 action total) and ``burst`` (+2 impact, with disadvantage).
+    """
+    unstable = bool(re.search(r"\bunstable\b", dicestr, flags=re.IGNORECASE))
+    burst = bool(re.search(r"\bburst\b", dicestr, flags=re.IGNORECASE))
+
+    # "disadvantage" contains "advantage", so disadvantage wins when both appear
+    # (advantage and disadvantage cancel). Burst is rolled with disadvantage.
+    disadvantage = (
+        bool(re.search(r"disadvantage", dicestr, flags=re.IGNORECASE)) or burst
+    )
     advantage = (
         bool(re.search(r"advantage", dicestr, flags=re.IGNORECASE)) and not disadvantage
     )
+
     overwhelmed = bool(re.search(r"overwhelmed", dicestr, flags=re.IGNORECASE))
     staggered = bool(re.search(r"staggered", dicestr, flags=re.IGNORECASE))
     match = re.search(r"(?:vs|counter)\s*([0-9]+)", dicestr, flags=re.IGNORECASE)
     counter = int(match.group(1)) if match else None
-    return Modifiers(advantage, disadvantage, overwhelmed, staggered, counter)
+
+    impact_mod, leftover = _impact_modifier(dicestr)
+    if burst:
+        impact_mod += 2
+    # Bare +/- numbers left after impact mods are removed adjust the action total.
+    action_mod = parse_math(leftover) - (1 if unstable else 0)
+
+    boosts = [
+        int(s) for s in re.findall(r"boost\s*d([0-9]+)", dicestr, flags=re.IGNORECASE)
+    ]
+    reduces = [
+        int(s) for s in re.findall(r"reduce\s*d([0-9]+)", dicestr, flags=re.IGNORECASE)
+    ]
+    burnout = bool(re.search(r"\bburn\s*out\b", dicestr, flags=re.IGNORECASE))
+
+    return Modifiers(
+        advantage,
+        disadvantage,
+        overwhelmed,
+        staggered,
+        counter,
+        action_mod,
+        impact_mod,
+        boosts,
+        reduces,
+        burnout,
+    )
 
 
 def mvkroll(dicestr: str, prior_rolls=None):
@@ -89,7 +148,9 @@ def mvkroll(dicestr: str, prior_rolls=None):
     answer = ""
     mods = _parse_modifiers(dicestr)
 
-    dicecounts = parse_dice(dicestr)
+    # Drop "boost dN"/"reduce dN" tokens so their target die isn't read as a die
+    # to roll; the boost/reduce itself is applied from mods below.
+    dicecounts = parse_dice(BOOST_REDUCE_RE.sub(" ", dicestr))
 
     # advantage and disadvantage need _at least_ 2d20
     # everything else only gets 1d20
@@ -101,10 +162,11 @@ def mvkroll(dicestr: str, prior_rolls=None):
         dicecounts[20] = 1
         answer += "_No advantage/disadvantage, setting 1d20_\n"
 
-    # Stress reduces/scratches the highest character die *type* before rolling.
-    stress_answer, dicecounts = stress_adjust(
-        dicecounts, mods.overwhelmed, mods.staggered
-    )
+    # Pool changes happen before rolling: boost/reduce keywords, then stress
+    # (which reduces/scratches the highest remaining character die *type*). Both
+    # mutate dicecounts in place; we keep only their note text.
+    answer += boost_reduce(dicecounts, mods.boosts, mods.reduces)[0]
+    answer += stress_adjust(dicecounts, mods.overwhelmed, mods.staggered)[0]
 
     if prior_rolls is None:
         dicerolls = roll_dice(dicecounts)
@@ -125,8 +187,6 @@ def mvkroll(dicestr: str, prior_rolls=None):
     )
     answer += adv_disadv_answer
 
-    # Note any stress change, then show the (already stress-adjusted) pool.
-    answer += stress_answer
     answer += print_dice(dicerolls)
     answer += "\n"
 
@@ -152,11 +212,19 @@ def mvkroll(dicestr: str, prior_rolls=None):
 
     answer += crit_success(fortunedicerolls)
 
-    action_answer, action_total = calc_action(fortunedicerolls, characterdicerolls)
+    # Burn Out totals the highest three dice instead of two.
+    action_answer, action_total = calc_action(
+        fortunedicerolls,
+        characterdicerolls,
+        keep=3 if mods.burnout else 2,
+        modifier=mods.action_mod,
+    )
     answer += action_answer
     answer += compare_counter(action_total, mods.counter)
 
-    answer += calc_impact(fortunedicerolls, characterdicerolls)
+    answer += calc_impact(
+        fortunedicerolls, characterdicerolls, modifier=mods.impact_mod
+    )
 
     return answer, rolls
 

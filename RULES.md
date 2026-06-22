@@ -119,20 +119,19 @@ _Bot calculates this and notes the minimum-impact-1 case. It only knows an actio
 Corebook:
 > The rules sometimes tell you to boost a die, changing it from a die of one size to one of a larger size ... or to reduce a die (the reverse...). When you boost a d12 in your dice pool, you keep the d12, but add an extra d4 to your pool as well. When you reduce a d4 in your pool, you remove that die entirely. You never boost the Fortune die up or down, and no other die size can boost to a d20.
 
-_Bot does not implement boost/reduce as a roll keyword — you just type the dice you end up with. (The stress feature reuses the "reduce" definition internally.)_
+- _Bot supports `boost dN` / `reduce dN` keywords that apply this before rolling: boost steps a die up one size (boosting a d12 keeps it and adds a d4); reduce steps it down (reducing a d4 removes it). The die must already be in the pool, and the fortune d20 is never boosted/reduced. (You can also just type the dice you end up with.)_
 
-# Other dice mechanics found in the corebook (not automated)
+# Ability-driven dice mechanics from the corebook
 
-These exist but are tied to specific character abilities/perks/powers, so they're
-too character-specific for the bot to apply automatically — the player just adds
-or removes the relevant dice/modifiers themselves before rolling:
+These come from specific character abilities/perks/powers. The bot now automates
+the parts that are pure dice math (via keywords); anything that requires knowing
+which of your dice is the "Drive die" etc. is left to the player.
 
-- Perk "Dice": "Add a d6 to your dice pool. • Boost a die that helps you. • Double a specific trait die in your pool. • Reduce a die that opposes you. • Reroll your dice pool."
-- Perk "Impact": "Add 2 points of impact towards a specific outcome."
-- "Burst": "Double your Drive die and add +2 Impact ... roll one additional fortune die ... but the highest-rolling d20 in your pool is scratched." (i.e. disadvantage)
-- "Burn Out": "Add three dice to determine your action total" (the only case where more than two dice are summed).
-- "Unstable": "Apply a cumulative -1 modifier to your action total each time this is used."
-- Spend Inspiration: before rolling, add a trait die or roll with Advantage; after rolling, add an unused die to your total / use one as an extra impact.
-- "Blowback": "If you roll a 1 on any die in your pool the GM may immediately reroll that and use it as an Impact die on you or an ally."
-
-_Note: `mvkroll` has no `+N`/`-N` action-total modifier (only `plainroll` does math today), even though several abilities above grant flat modifiers — a possible future addition._
+- Flat modifiers — _Bot: `+N`/`-N` adjust the **action total**; `impact +N` (or `+N impact`) adjusts **impact**. (MvK is mostly a dice-not-modifiers system; these cover the rare flat bonuses.)_
+- Perk "Dice": "Add a d6 to your dice pool. • Boost a die that helps you. • Double a specific trait die in your pool. • Reduce a die that opposes you. • Reroll your dice pool." — _Bot: boost/reduce are keywords (see Boost/Reduce); add/double a die by just typing it; reroll by rolling again._
+- Perk "Impact": "Add 2 points of impact towards a specific outcome." — _Bot: `impact +2`._
+- "Unstable": "Apply a cumulative -1 modifier to your action total each time this is used." — _Bot: `unstable` keyword applies -1 (the per-use stacking is up to you — repeat the keyword or use `-N`)._
+- "Burst": "Double your Drive die and add +2 Impact ... roll one additional fortune die ... but the highest-rolling d20 in your pool is scratched." — _Bot: `burst` keyword adds +2 impact and rolls with disadvantage; add the doubled Drive die yourself._
+- "Burn Out": "Add three dice to determine your action total." — _Bot: `burnout` keyword totals the highest three dice (the extra trait dice are added by you)._
+- Spend Inspiration: before rolling, add a trait die or roll with Advantage; after rolling, add an unused die to your total / use one as an extra impact. — _Not automated; add the die or use `advantage`._
+- "Blowback": "If you roll a 1 on any die in your pool the GM may immediately reroll that and use it as an Impact die on you or an ally." — _Not automated (GM-side)._

@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 # The next-smaller size a character die reduces to (the fortune d20 is never
 # reduced). Reducing a d4 drops it from the pool entirely.
 _SMALLER_SIZE = {12: 10, 10: 8, 8: 6, 6: 4, 4: None}
+# The next-larger size a character die boosts to. A d12 is special-cased (it
+# stays and adds a d4), and no die ever boosts to the d20 fortune die.
+_LARGER_SIZE = {4: 6, 6: 8, 8: 10, 10: 12}
 
 
 def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
@@ -56,19 +59,24 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
     return answer, dicerolls[20]
 
 
-def calc_action(fortunedicerolls, characterdicerolls):
-    """Compute the action total, using the highest two rolls. Up to one fortune die may be used.
+def calc_action(fortunedicerolls, characterdicerolls, keep=2, modifier=0):
+    """Compute the action total from the highest ``keep`` rolls (max one fortune die).
 
-    Returns ``(answer, action_total)`` so callers can compare the numeric total
-    against an opposing counter total.
+    ``keep`` is 2 normally and 3 for Burn Out. ``modifier`` is a flat +/- applied
+    to the total (e.g. Unstable's -1). Returns ``(answer, action_total)`` so
+    callers can compare the numeric total against an opposing counter total.
     """
     try:
         action_dice = sorted(fortunedicerolls, reverse=True)[:1]
         action_dice += characterdicerolls
         action_dice.sort(reverse=True)
-        action_dice = action_dice[:2]
-        action_total = sum(action_dice)
-        answer = f"**Action Total: {str(action_total)}** {str(action_dice)}\n"
+        action_dice = action_dice[:keep]
+        base = sum(action_dice)
+        action_total = base + modifier
+        answer = f"**Action Total: {action_total}** {action_dice}"
+        if modifier:
+            answer += f" (= {base} {modifier:+d})"
+        answer += "\n"
     except Exception as exc:
         raise RollError(
             "Coding error flattening dice rolls and creating total."
@@ -76,8 +84,12 @@ def calc_action(fortunedicerolls, characterdicerolls):
     return answer, action_total
 
 
-def calc_impact(fortunedicerolls, characterdicerolls):
-    """Calculate the impact total"""
+def calc_impact(fortunedicerolls, characterdicerolls, modifier=0):
+    """Calculate the impact total.
+
+    ``modifier`` is a flat +/- applied on top of the rolled impact (e.g. Burst's
+    +2 Impact). The minimum-impact rule is computed before the modifier.
+    """
     try:
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
         fortune_high = fortunedicerolls[0] >= 4
@@ -88,15 +100,18 @@ def calc_impact(fortunedicerolls, characterdicerolls):
         # Minimum impact of 1, but only when the fortune die rolled 4+ (even a
         # countered action still accomplishes something). With no 4+ fortune die
         # and no qualifying character dice the impact is genuinely 0.
-        impact = max(raw, 1) if fortune_high else raw
+        computed = max(raw, 1) if fortune_high else raw
+        impact = computed + modifier
         answer = f"**Impact: {impact}** "
         answer += (
             f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
         )
+        if modifier:
+            answer += f" (= {computed} {modifier:+d})"
         # When that lone point comes only from the fortune die, it's the minimum
         # impact you keep even if the action is countered -- worth spelling out.
         if (
-            impact == 1
+            computed == 1
             and fortuneimpact == 1
             and not doublecharacterimpact
             and not characterimpact
@@ -216,3 +231,51 @@ def stress_adjust(dicecounts, overwhelmed, staggered):
         )
     except Exception as exc:
         raise RollError("Coding error applying stress.") from exc
+
+
+def _boost_one(dicecounts, size):
+    """Boost one die of ``size`` in the pool; return a note line (or None)."""
+    if size == 20:
+        return "(cannot boost the fortune die)"
+    if dicecounts.get(size, 0) < 1:
+        return f"(no d{size} to boost)"
+    if size == 12:
+        # A d12 stays and adds a d4 (it never boosts to a d20).
+        dicecounts[4] += 1
+        return "boosted d12 (added a d4)"
+    dicecounts[size] -= 1
+    dicecounts[_LARGER_SIZE[size]] += 1
+    return f"boosted d{size} → d{_LARGER_SIZE[size]}"
+
+
+def _reduce_one(dicecounts, size):
+    """Reduce one die of ``size`` in the pool; return a note line (or None)."""
+    if size == 20:
+        return "(cannot reduce the fortune die)"
+    if dicecounts.get(size, 0) < 1:
+        return f"(no d{size} to reduce)"
+    dicecounts[size] -= 1
+    smaller = _SMALLER_SIZE[size]
+    if smaller is None:
+        return f"reduced d{size} → removed"
+    dicecounts[smaller] += 1
+    return f"reduced d{size} → d{smaller}"
+
+
+def boost_reduce(dicecounts, boosts, reduces):
+    """Apply ``boost dN`` / ``reduce dN`` keywords to the pool before rolling.
+
+    Boosting steps a die up one size (boosting a d12 keeps it and adds a d4);
+    reducing steps it down (reducing a d4 removes it). The die must already be in
+    the pool. The fortune d20 is never boosted or reduced. Mutates and returns
+    ``(answer, dicecounts)``; the answer is empty when there is nothing to do.
+    """
+    try:
+        notes = [_boost_one(dicecounts, size) for size in boosts]
+        notes += [_reduce_one(dicecounts, size) for size in reduces]
+    except Exception as exc:
+        raise RollError("Coding error applying boost/reduce.") from exc
+
+    if not notes:
+        return "", dicecounts
+    return "**Boost/Reduce**\n" + "".join(f"-# {n}\n" for n in notes), dicecounts
