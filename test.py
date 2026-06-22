@@ -88,7 +88,7 @@ class TestRoller(unittest.TestCase):
 
     def test_plainroll_escalation_shown(self):
         """A single d20 with escalation > 0 shows the Esc line and escalated total."""
-        out = roller.plainroll("d20 +7", escalation=3)
+        out, _rolls = roller.plainroll("d20 +7", escalation=3)
         self.assertIn("-# Esc: :three:", out)
         total = int(re.search(r"Total: \*\*(-?\d+)\*\*", out).group(1))
         w_esc = int(re.search(r"w/Esc: \*\*(-?\d+)\*\*", out).group(1))
@@ -98,9 +98,20 @@ class TestRoller(unittest.TestCase):
         """No escalation lines at 0, for multiple d20s, or when other dice are present."""
         for dstring, esc in [("d20", 0), ("2d20", 3), ("d20 d6", 3)]:
             with self.subTest(dstring=dstring, escalation=esc):
-                out = roller.plainroll(dstring, escalation=esc)
+                out, _rolls = roller.plainroll(dstring, escalation=esc)
                 self.assertNotIn("Esc:", out)
                 self.assertNotIn("w/Esc", out)
+
+    def test_roller_returns_rolls(self):
+        """The rollers return (text, rolls) so edits can reuse the dice."""
+        text, rolls = roller.plainroll("2d6")
+        self.assertIsInstance(text, str)
+        self.assertEqual(len(rolls[6]), 2)
+
+        text, rolls = roller.mvkroll("d20 2d8")
+        self.assertIsInstance(text, str)
+        self.assertEqual(len(rolls[20]), 1)
+        self.assertEqual(len(rolls[8]), 2)
 
     def test_roller_exception(self):
         """Ensure RollError exceptions carry messages properly."""
@@ -287,43 +298,64 @@ class TestBotCommands(unittest.TestCase):
         self.assertTrue(callable(mvkdicebot.bot.setup_hook))
 
 
-class TestRollEcho(unittest.TestCase):
-    """Test the optional input echo used by the slash commands."""
+class TestRevisions(unittest.TestCase):
+    """Test the pieces behind editing/echoing a roll (issue #13)."""
 
-    @staticmethod
-    def _capture():
-        """Return (captured_list, async send) that records what was sent."""
-        captured = []
+    def test_echo_prefix(self):
+        """Slash rolls echo the input as a quoted-subtext inline-code line."""
+        self.assertEqual(rollcog.echo_prefix("d20 +7"), "> -# `d20 +7`\n")
 
-        async def send(msg):
-            captured.append(msg)
+    def test_dice_line(self):
+        """dice_line picks out the 'Dice:' line (and ignores a trailing space)."""
+        body = "Dice: 6d10[7, 5, 4, 1, 7, 5] \nTotal: **29**"
+        self.assertEqual(rollcog.dice_line(body), "Dice: 6d10[7, 5, 4, 1, 7, 5]")
+        self.assertIsNone(rollcog.dice_line("Not enough dice to roll"))
 
-        return captured, send
-
-    def test_echo_prepends_input(self):
-        """echo_input prepends the roll string as a '-# ' subtext line."""
-        captured, send = self._capture()
-        asyncio.run(
-            rollcog._do_roll(send, lambda s: "RESULT", "d20 +7", echo_input=True)
+    def test_render_with_history(self):
+        """History lines (struck-through) stack above the current body; none if empty."""
+        body = "Dice: 7d10[...] \nTotal: **30**"
+        self.assertEqual(rollcog.render_with_history([], body), body)
+        history = ["-# ~~Dice: 6d10[7, 5, 4, 1, 7, 5]~~"]
+        self.assertEqual(
+            rollcog.render_with_history(history, body),
+            "-# ~~Dice: 6d10[7, 5, 4, 1, 7, 5]~~\n" + body,
         )
-        self.assertEqual(captured, ["> -# `d20 +7`\nRESULT"])
 
-    def test_no_echo_by_default(self):
-        """Without echo_input the output is unchanged (the text-command case)."""
-        captured, send = self._capture()
-        asyncio.run(rollcog._do_roll(send, lambda s: "RESULT", "d20 +7"))
-        self.assertEqual(captured, ["RESULT"])
+    def test_merge_keeps_prior_and_rolls_extra(self):
+        """Added dice are rolled fresh; existing dice are kept (earliest first)."""
+        merged = roller.merge_rolls({20: [14]}, {20: 2}, random.Random(1))
+        self.assertEqual(len(merged[20]), 2)
+        self.assertEqual(merged[20][0], 14)
 
-    def test_echo_on_error(self):
-        """The echo line is also prepended to a RollError message, then re-raised."""
-        captured, send = self._capture()
+    def test_merge_drops_extra_when_count_decreases(self):
+        """Reducing the count keeps a random subset of the prior rolls."""
+        merged = roller.merge_rolls({6: [1, 2, 3]}, {6: 1}, random.Random(0))
+        self.assertEqual(len(merged[6]), 1)
+        self.assertIn(merged[6][0], [1, 2, 3])
 
-        def boom(_):
-            raise roller.RollError("bad dice")
+    def test_merge_kept_subset_varies(self):
+        """Which dice are kept when reducing isn't always the same."""
+        prior = {10: [1, 2, 3, 4, 5, 6, 7, 8]}
+        seen = set()
+        for seed in range(20):
+            kept = roller.merge_rolls(prior, {10: 2}, random.Random(seed))[10]
+            self.assertEqual(len(kept), 2)
+            self.assertTrue(set(kept) <= set(prior[10]))
+            seen.add(tuple(sorted(kept)))
+        self.assertGreater(len(seen), 1)
 
-        with self.assertRaises(roller.RollError):
-            asyncio.run(rollcog._do_roll(send, boom, "d99", echo_input=True))
-        self.assertEqual(captured, ["> -# `d99`\nbad dice"])
+    def test_merge_unchanged_counts_reuse_all(self):
+        """When counts don't change, every prior die is reused (e.g. only +N edited)."""
+        merged = roller.merge_rolls({20: [14], 6: [3, 5]}, {20: 1, 6: 2})
+        self.assertEqual(merged[20], [14])
+        self.assertEqual(merged[6], [3, 5])
+
+    def test_merge_new_size(self):
+        """A newly-added die size is rolled fresh and in range."""
+        merged = roller.merge_rolls({}, {8: 2}, random.Random(5))
+        self.assertEqual(len(merged[8]), 2)
+        for value in merged[8]:
+            self.assertTrue(1 <= value <= 8)
 
 
 class TestEscalation(unittest.TestCase):

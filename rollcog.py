@@ -18,6 +18,7 @@
 # https://github.com/freiheit/MvKDiceBot
 """Dice-rolling commands for MvKDiceBot (text, mention, and slash)."""
 
+import collections
 import functools
 
 import discord
@@ -33,26 +34,40 @@ MVK_DICE_HELP = (
 )
 PLAIN_DICE_HELP = "Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
 
+# How many recent text rolls to remember (message -> our reply) for edit handling.
+MAX_TRACKED = 200
 
-async def _do_roll(send, roll_func, dicestr, echo_input=False):
-    """Run a roller and send its output (or the error message) via ``send``.
+# State kept per text-roll trigger message so edits can update the same reply,
+# re-roll only the added dice, and show prior dice lines struck through.
+#   reply   - the Message we sent
+#   rolls   - the raw dice rolled (passed back in as prior_rolls on edit)
+#   text    - the current roll's rendered body (its 'Dice:' line is struck next edit)
+#   history - struck-through 'Dice:' lines from previous versions of this roll
+RollState = collections.namedtuple("RollState", "reply rolls text history")
 
-    ``send`` is a coroutine that takes a single string: ``ctx.reply`` for the
-    text/hybrid commands or ``interaction.response.send_message`` for the slash
-    aliases. Re-raises RollError after reporting it so it is still logged.
 
-    When ``echo_input`` is set, the original roll string is prepended as a
-    quoted subtext line with the input in inline code (``> -# `...` ``). Slash
-    commands enable this because, unlike a text reply, the invocation isn't
-    otherwise visible to the channel; the backticks also stop any markdown or
-    mentions in the echoed string from being interpreted.
+def echo_prefix(dicestr):
+    """Quoted-subtext echo of the roll string, shown only for slash commands.
+
+    A slash invocation isn't otherwise visible to the channel, so we echo it. The
+    backticks keep any markdown or mentions in the string from being interpreted.
     """
-    prefix = f"> -# `{dicestr}`\n" if echo_input else ""
-    try:
-        await send(prefix + roll_func(dicestr))
-    except mvkroller.RollError as exc:
-        await send(prefix + exc.getMessage())
-        raise
+    return f"> -# `{dicestr}`\n"
+
+
+def dice_line(text):
+    """Return the 'Dice: ...' line from a roll's rendered body, or None."""
+    for line in text.split("\n"):
+        if line.startswith("Dice:"):
+            return line.rstrip()
+    return None
+
+
+def render_with_history(history, body):
+    """Stack struck-through history lines (if any) above the current body."""
+    if history:
+        return "\n".join(history) + "\n" + body
+    return body
 
 
 class Roll(commands.Cog):
@@ -60,12 +75,69 @@ class Roll(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        # trigger message id -> RollState, for editing text rolls in place.
+        self.replies = collections.OrderedDict()
 
     def _plainroller(self, channel_id):
         """A plainroll callable bound to the channel's current escalation die."""
         cog = self.bot.get_cog("Escalation")
         escalation = cog.current_escalation(channel_id) if cog else 0
         return functools.partial(mvkroller.plainroll, escalation=escalation)
+
+    def _remember(self, message_id, state):
+        """Track a RollState for a trigger message, bounding the cache size."""
+        self.replies[message_id] = state
+        self.replies.move_to_end(message_id)
+        while len(self.replies) > MAX_TRACKED:
+            self.replies.popitem(last=False)
+
+    async def _post(self, ctx, content, state):
+        """Reply to a text roll, or edit our existing reply, then store the state."""
+        existing = self.replies.get(ctx.message.id)
+        reply = existing.reply if existing else None
+        if reply is not None:
+            try:
+                await reply.edit(content=content)
+            except discord.HTTPException:
+                reply = None  # our reply is gone; post a fresh one
+        if reply is None:
+            reply = await ctx.reply(content)
+        self._remember(
+            ctx.message.id, RollState(reply, state.rolls, state.text, state.history)
+        )
+
+    async def _run_text_roll(self, ctx, roller, dicestr):
+        """Run a roller for a text/mention invocation (tracked, prior reused)."""
+        prev = self.replies.get(ctx.message.id)
+        prior_rolls = prev.rolls if prev else None
+        prior_history = prev.history if prev else []
+        prior_text = prev.text if prev else ""
+
+        try:
+            text, rolls = roller(dicestr, prior_rolls=prior_rolls)
+        except mvkroller.RollError as exc:
+            content = render_with_history(prior_history, exc.getMessage())
+            await self._post(
+                ctx, content, RollState(None, prior_rolls, prior_text, prior_history)
+            )
+            raise
+
+        history = list(prior_history)
+        previous = dice_line(prior_text)
+        if previous:
+            history.append(f"-# ~~{previous}~~")
+        content = render_with_history(history, text)
+        await self._post(ctx, content, RollState(None, rolls, text, history))
+
+    async def _run_slash_roll(self, interaction, roller, dicestr):
+        """Run a roller for a slash invocation (echo the input, no edit tracking)."""
+        prefix = echo_prefix(dicestr)
+        try:
+            text, _ = roller(dicestr, prior_rolls=None)
+        except mvkroller.RollError as exc:
+            await interaction.response.send_message(prefix + exc.getMessage())
+            raise
+        await interaction.response.send_message(prefix + text)
 
     @commands.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])
     @app_commands.describe(dicestr=MVK_DICE_HELP)
@@ -82,14 +154,13 @@ class Roll(commands.Cog):
         Example: '?roll 2d20 2d10 advantage'
         Example: '?roll 2d20 2d10 disadvantage'
 
-        Ignores anything extra it doesn't understand.
+        Ignores anything extra it doesn't understand. Editing a text roll re-rolls
+        only the dice you added and updates the same reply.
         """
-        await _do_roll(
-            ctx.reply,
-            mvkroller.mvkroll,
-            dicestr,
-            echo_input=ctx.interaction is not None,
-        )
+        if ctx.interaction is None:
+            await self._run_text_roll(ctx, mvkroller.mvkroll, dicestr)
+        else:
+            await self._run_slash_roll(ctx.interaction, mvkroller.mvkroll, dicestr)
 
     @commands.hybrid_command(
         aliases=[
@@ -125,12 +196,11 @@ class Roll(commands.Cog):
         advantage/disadvantage, since in many rules and situations an 18 might
         be better than a 19 or a 2 better than a 16.
         """
-        await _do_roll(
-            ctx.reply,
-            self._plainroller(ctx.channel.id),
-            dicestr,
-            echo_input=ctx.interaction is not None,
-        )
+        roller = self._plainroller(ctx.channel.id)
+        if ctx.interaction is None:
+            await self._run_text_roll(ctx, roller, dicestr)
+        else:
+            await self._run_slash_roll(ctx.interaction, roller, dicestr)
 
     # Discord application commands have no alias mechanism, so the short '/r' and
     # '/p' forms are registered as their own slash commands that reuse the rollers.
@@ -140,12 +210,7 @@ class Roll(commands.Cog):
     @app_commands.describe(dicestr=MVK_DICE_HELP)
     async def mvkroll_slash_alias(self, interaction: discord.Interaction, dicestr: str):
         """Slash-command alias (/r) for /mvkroll."""
-        await _do_roll(
-            interaction.response.send_message,
-            mvkroller.mvkroll,
-            dicestr,
-            echo_input=True,
-        )
+        await self._run_slash_roll(interaction, mvkroller.mvkroll, dicestr)
 
     @app_commands.command(
         name="p", description="Roll a dice pool and total it (same as /plainroll)"
@@ -155,12 +220,21 @@ class Roll(commands.Cog):
         self, interaction: discord.Interaction, dicestr: str
     ):
         """Slash-command alias (/p) for /plainroll."""
-        await _do_roll(
-            interaction.response.send_message,
-            self._plainroller(interaction.channel_id),
-            dicestr,
-            echo_input=True,
-        )
+        roller = self._plainroller(interaction.channel_id)
+        await self._run_slash_roll(interaction, roller, dicestr)
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, before, after):
+        """Re-run an edited roll, reusing prior dice and editing our reply.
+
+        Only this cog's roll commands are re-run, so stateful commands (like the
+        escalation tracker) are never double-executed by a message edit.
+        """
+        if before.content == after.content:
+            return
+        ctx = await self.bot.get_context(after)
+        if ctx.command is not None and ctx.cog is self:
+            await self.bot.invoke(ctx)
 
 
 async def setup(bot):

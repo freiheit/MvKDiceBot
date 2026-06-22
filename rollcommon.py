@@ -87,23 +87,22 @@ def parse_dice(dicestr: str):
     return dicecounts
 
 
+def _roll_one(size, rand_source):
+    """Roll a single die of the given size with the given random.Random."""
+    return int(rand_source.random() * size) + 1
+
+
+def _empty_dicerolls():
+    return {20: [], 12: [], 10: [], 8: [], 6: [], 4: []}
+
+
 def roll_dice(dicecounts, rand_source=None):
     """Returns a dictionary of dieSize => rolls[]
 
     A `rand_source` (a random.Random instance) may be supplied so tests can roll
     deterministically; by default a fresh random.Random() is used.
     """
-    dicerolls = {
-        20: [],
-        12: [],
-        10: [],
-        8: [],
-        6: [],
-        4: [],
-    }
-
-    def rollit(size, src):
-        return int(src.random() * size) + 1
+    dicerolls = _empty_dicerolls()
 
     try:
         if rand_source is None:
@@ -111,9 +110,38 @@ def roll_dice(dicecounts, rand_source=None):
 
         for size, num in dicecounts.items():
             if num > 0:
-                dicerolls[size] = [rollit(size, rand_source) for idx in range(0, num)]
+                dicerolls[size] = [
+                    _roll_one(size, rand_source) for idx in range(0, num)
+                ]
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
+
+    return dicerolls
+
+
+def merge_rolls(prior, dicecounts, rand_source=None):
+    """Reuse prior per-size rolls, rolling only the newly-added dice.
+
+    For each die size, keep up to ``dicecounts[size]`` of ``prior``'s rolls and
+    roll any additional dice; if the count dropped, a random subset of the prior
+    rolls is kept (so editing down doesn't always discard the same dice). This
+    makes editing a roll re-roll only the dice that were added, leaving the others
+    as they were.
+    """
+    dicerolls = _empty_dicerolls()
+
+    try:
+        if rand_source is None:
+            rand_source = random.Random()
+
+        for size in dicerolls:
+            want = dicecounts.get(size, 0)
+            have = list(prior.get(size, []))
+            kept = rand_source.sample(have, want) if want < len(have) else have
+            extra = [_roll_one(size, rand_source) for _ in range(want - len(kept))]
+            dicerolls[size] = kept + extra
+    except Exception as exc:
+        raise RollError("Exception while merging dice rolls.") from exc
 
     return dicerolls
 
