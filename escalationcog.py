@@ -163,6 +163,25 @@ class Escalation(commands.Cog):
             interaction.channel_id, action, interaction.response.send_message
         )
 
+    @commands.hybrid_command(name="nextround", aliases=["next", "n"])
+    async def nextround(self, ctx):
+        """Advance the escalation die by a round (same as 'escalation next').
+
+        Usable as '?nextround'/'/nextround' (text aliases '?next', '?n'; also the
+        '/n' slash command).
+        """
+        await self._handle(ctx.channel.id, "next", ctx.reply)
+
+    # As with '/esc', the '/n' slash form is its own command (no slash aliases).
+    @app_commands.command(
+        name="n", description="Advance the escalation die a round (same as /nextround)"
+    )
+    async def n_slash_alias(self, interaction):
+        """Slash-command alias (/n) for /nextround."""
+        await self._handle(
+            interaction.channel_id, "next", interaction.response.send_message
+        )
+
 
 async def setup(bot):
     """discord.py extension entry point: register the Escalation cog."""
