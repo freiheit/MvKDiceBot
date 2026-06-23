@@ -24,6 +24,7 @@ their attack rolls. This cog tracks one value per channel, in memory, and lets a
 channel's value lapse back to 0 after a period of inactivity.
 """
 
+import functools
 import time
 
 from discord import app_commands
@@ -148,7 +149,9 @@ class Escalation(commands.Cog):
         (text aliases '?esc', '?e'; also the '/esc' slash command). A channel's
         value resets to 0 after 12 hours of inactivity.
         """
-        await self._handle(ctx.channel.id, action, ctx.reply)
+        await self._handle(
+            ctx.channel.id, action, functools.partial(ctx.reply, mention_author=False)
+        )
 
     # Discord application commands have no alias mechanism, so '/esc' is its own
     # slash command reusing the same handler (there is intentionally no '/e').
@@ -170,7 +173,9 @@ class Escalation(commands.Cog):
         Usable as '?nextround'/'/nextround' (text aliases '?next', '?n'; also the
         '/n' slash command).
         """
-        await self._handle(ctx.channel.id, "next", ctx.reply)
+        await self._handle(
+            ctx.channel.id, "next", functools.partial(ctx.reply, mention_author=False)
+        )
 
     # As with '/esc', the '/n' slash form is its own command (no slash aliases).
     @app_commands.command(

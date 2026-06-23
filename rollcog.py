@@ -107,7 +107,8 @@ class Roll(commands.Cog):
             except discord.HTTPException:
                 reply = None  # our reply is gone; post a fresh one
         if reply is None:
-            reply = await ctx.reply(content)
+            # Reply (so it threads under the trigger) but don't ping the author.
+            reply = await ctx.reply(content, mention_author=False)
         self._remember(
             ctx.message.id, RollState(reply, state.rolls, state.text, state.history)
         )
