@@ -57,10 +57,15 @@ def echo_prefix(dicestr):
 
 
 def dice_line(text):
-    """Return the 'Dice: ...' line from a roll's rendered body, or None."""
+    """Return the 'Dice: ...' line from a roll's rendered body, or None.
+
+    The rollers render the dice as a quiet '-# Dice: ...' subtext line; the '-# '
+    prefix is stripped so the history entry strikes through just the dice.
+    """
     for line in text.split("\n"):
-        if line.startswith("Dice:"):
-            return line.rstrip()
+        stripped = line.removeprefix("-# ")
+        if stripped.startswith("Dice:"):
+            return stripped.rstrip()
     return None
 
 

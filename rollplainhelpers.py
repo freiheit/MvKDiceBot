@@ -25,27 +25,37 @@ from rollcommon import RollError
 
 
 def print_d20_special(dicerolls):
-    """Checks for special d20 rules and adds stuff for any special stuff"""
-    answer = ""
+    """Check a single d20 for special results.
+
+    Returns ``(header, callout)``: ``header`` is a top-of-message ``### 🎯/💥``
+    crit line for a natural 20/1 (empty otherwise); ``callout`` is the even/odd
+    (and Two-Weapon on a 2) note shown on its own line after the dice (empty for
+    a crit, or when this isn't a lone d20). Both empty when there's no single d20.
+    """
+    header = ""
+    callout = ""
     try:
-        for size, values in dicerolls.items():
-            if len(values) == 1 and size == 20:
-                if values[0] == 1:
-                    answer += " **(Crit Fumble/Fail)**"
-                elif values[0] == 20:
-                    answer += " **(Crit Success)**"
-                elif values[0] % 2 == 0:
-                    answer += " _(Even)_"
-                else:
-                    answer += " _(Odd)_"
+        values = dicerolls.get(20, [])
+        only_d20 = len(values) == 1 and all(
+            len(rolls) == 0 for size, rolls in dicerolls.items() if size != 20
+        )
+        if only_d20:
+            value = values[0]
+            if value == 20:
+                header = "### 🎯 Critical Success"
+            elif value == 1:
+                header = "### 💥 Critical Fumble"
+            elif value % 2 == 0:
+                callout = "(Even)"
+            else:
+                callout = "(Odd)"
 
-                if values[0] == 2:  # separate because also even
-                    answer += "\n_Two-Weapon Hit?_"
-
+            if value == 2:  # separate because also even
+                callout += " — Two-Weapon Hit?"
     except Exception as exc:
         raise RollError("Coding error displaying Dice") from exc
 
-    return answer
+    return header, callout
 
 
 def parse_math(dicestr: str):

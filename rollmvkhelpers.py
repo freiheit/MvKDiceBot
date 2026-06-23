@@ -34,7 +34,12 @@ _LARGER_SIZE = {4: 6, 6: 8, 8: 10, 10: 12}
 
 
 def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
-    """Perform extra work when rolling with advantage or disadvantage"""
+    """Apply advantage/disadvantage, keeping one d20.
+
+    Returns ``(fragment, fortune)`` where ``fragment`` is a short subtext note
+    like ``"Advantage: kept 18 of [18, 5]"`` (empty when neither applies), built
+    from the original pair captured before the in-place sort.
+    """
     answer = ""
     fortunedicerolls = dicerolls[20]
 
@@ -42,17 +47,17 @@ def adv_disadv(advantage, disadvantage, dicecounts, dicerolls):
         if (advantage or disadvantage) and len(fortunedicerolls):
             logger.debug("Dicecounts %s", dicecounts)
             logger.debug("Dicerolls %s", dicerolls)
-            answer += "Original d20s: "
-            answer += f"{len(fortunedicerolls)}d20{str(fortunedicerolls)} -- "
+            original = list(fortunedicerolls)
             if advantage:
-                answer += "_Applying advantage_\n\n"
+                label = "Advantage"
                 dicerolls[20].sort(reverse=True)
                 logger.debug("Advantage rolls %s", dicerolls[20])
-            if disadvantage:
-                answer += "_Applying disadvantage_\n\n"
+            else:
+                label = "Disadvantage"
                 dicerolls[20].sort()
                 logger.debug("Disadvantage rolls %s", dicerolls[20])
             dicerolls[20] = [dicerolls[20][0]]
+            answer = f"{label}: kept {dicerolls[20][0]} of {original}"
     except Exception as exc:
         raise RollError("Coding error calculating advantage or disadvantage.") from exc
 
@@ -63,8 +68,10 @@ def calc_action(fortunedicerolls, characterdicerolls, keep=2, modifier=0):
     """Compute the action total from the highest ``keep`` rolls (max one fortune die).
 
     ``keep`` is 2 normally and 3 for Burn Out. ``modifier`` is a flat +/- applied
-    to the total (e.g. Unstable's -1). Returns ``(answer, action_total)`` so
-    callers can compare the numeric total against an opposing counter total.
+    to the total (e.g. Unstable's -1). Returns ``(action_total, label, from_frag)``
+    where ``label`` is e.g. ``"Action Total: 23"`` and ``from_frag`` the subtext
+    detail ``"action from: [15, 8]"`` (with ``(= base ±N)`` appended when there's
+    a modifier). The caller composes the final lines.
     """
     try:
         action_dice = sorted(fortunedicerolls, reverse=True)[:1]
@@ -73,22 +80,27 @@ def calc_action(fortunedicerolls, characterdicerolls, keep=2, modifier=0):
         action_dice = action_dice[:keep]
         base = sum(action_dice)
         action_total = base + modifier
-        answer = f"**Action Total: {action_total}** {action_dice}"
+        label = f"Action Total: {action_total}"
+        from_frag = f"action from: {action_dice}"
         if modifier:
-            answer += f" (= {base} {modifier:+d})"
-        answer += "\n"
+            from_frag += f" (= {base} {modifier:+d})"
     except Exception as exc:
         raise RollError(
             "Coding error flattening dice rolls and creating total."
         ) from exc
-    return answer, action_total
+    return action_total, label, from_frag
 
 
 def calc_impact(fortunedicerolls, characterdicerolls, modifier=0):
     """Calculate the impact total.
 
     ``modifier`` is a flat +/- applied on top of the rolled impact (e.g. Burst's
-    +2 Impact). The minimum-impact rule is computed before the modifier.
+    +2 Impact). The minimum-impact rule is computed before the modifier. Returns
+    ``(label, from_frag, min_note)`` where ``label`` is e.g. ``"Impact: 4"``,
+    ``from_frag`` the subtext detail ``"impact from: fortune 1 · doubles 0 ·
+    singles 3"`` (with ``(= computed ±N)`` appended when modified), and
+    ``min_note`` the minimum-impact sentence or ``""``. The caller composes the
+    final lines.
     """
     try:
         # die results of 10 or higher on a d10 or 12 give two impact. It doesn't happen on a d20.
@@ -102,62 +114,64 @@ def calc_impact(fortunedicerolls, characterdicerolls, modifier=0):
         # and no qualifying character dice the impact is genuinely 0.
         computed = max(raw, 1) if fortune_high else raw
         impact = computed + modifier
-        answer = f"**Impact: {impact}** "
-        answer += (
-            f"(fortune={fortuneimpact} 2x={doublecharacterimpact} 1x={characterimpact})"
+        label = f"Impact: {impact}"
+        from_frag = (
+            f"impact from: fortune {fortuneimpact} · "
+            f"doubles {doublecharacterimpact} · singles {characterimpact}"
         )
         if modifier:
-            answer += f" (= {computed} {modifier:+d})"
+            from_frag += f" (= {computed} {modifier:+d})"
         # When that lone point comes only from the fortune die, it's the minimum
         # impact you keep even if the action is countered -- worth spelling out.
+        min_note = ""
         if (
             computed == 1
             and fortuneimpact == 1
             and not doublecharacterimpact
             and not characterimpact
         ):
-            answer += "\n-# Minimum impact 1 from the fortune die (even if countered)."
+            min_note = "Minimum impact 1 from the fortune die (even if countered)."
     except Exception as exc:
         raise RollError("Coding error calculating Impact") from exc
-    return answer
+    return label, from_frag, min_note
 
 
 def crit_fumble(fortunedicerolls, characterdicerolls):
-    """Check if we had a critical fumble. If so, add output and discard lowest non-1 die"""
-    answer = ""
+    """Check for a critical fumble; if so, scratch the lowest non-1 die.
+
+    Returns ``(header, newdicerolls)``: ``header`` is the ``### 💥 Critical
+    Fumble`` line (with ``(scratched N)`` when a die was scratched), or ``""``
+    when there's no fumble. The bold inspiration line is emitted by the caller.
+    """
+    header = ""
     newdicerolls = characterdicerolls
     if fortunedicerolls[0] == 1:
-        answer += "**Critical Fumble**\n"
         characterdicerolls.sort()
         newdicerolls = []
-        scratched = False
+        scratched = None
         for i in characterdicerolls:
-            if scratched:
+            if scratched is not None:
                 newdicerolls.append(i)
             elif i == 1:
                 newdicerolls.append(i)
             else:
-                scratched = True
-                answer += f"*Scratched {i}*\n"
+                scratched = i
                 # no append because scratching this die
-
-        answer += "**Gain 1 inspiration point**\n"
-        answer += f"New character dice: {newdicerolls}\n"
-    return answer, newdicerolls
+        if scratched is None:
+            header = "### 💥 Critical Fumble"
+        else:
+            header = f"### 💥 Critical Fumble (scratched {scratched})"
+    return header, newdicerolls
 
 
 def possible_fumble(fortunedicerolls):
+    """A 1-3 on the d20 is a critical fumble *if* the action is countered.
+
+    Returns a plain reminder sentence (no markup) or ``""``.
     """
-    You also critically fumble if your action is successfully countered
-    and you roll a 1-3 on the d20
-    """
-    answer = ""
     if fortunedicerolls[0] <= 3:
-        answer += "**Possible Critical Fumble**\n"
-        answer += (
-            "If your action is successfully countered, gain 1 inspiration point.\n"
-        )
-    return answer
+        return "Possible critical fumble: if your action is countered, gain 1 inspiration point."
+    return ""
 
 
 def crit_success(fortunedicerolls):
@@ -166,13 +180,15 @@ def crit_success(fortunedicerolls):
     ``fortunedicerolls`` is sorted descending and (after advantage/disadvantage)
     holds the single kept die, so index 0 is the die used for the action total.
     A critical success and a critical fumble can't both happen on that one die.
+    Returns ``(header, choose)``: the ``### 🎯 Critical Success`` header and the
+    plain "Choose:" reminder, or ``("", "")`` when there's no critical success.
     """
     if fortunedicerolls and fortunedicerolls[0] == 20:
         return (
-            "**Critical Success**\n"
-            "Choose: increase your Impact by 2, or gain 1 inspiration point.\n"
+            "### 🎯 Critical Success",
+            "Choose: +2 Impact, or gain 1 inspiration point.",
         )
-    return ""
+    return "", ""
 
 
 def compare_counter(action_total, counter):
@@ -181,14 +197,15 @@ def compare_counter(action_total, counter):
     Per the rules, the action succeeds unless the counter total is *higher*, so
     a tie is a success. An unsuccessful action can't inflict stress, but the
     actor still gets their minimum impact, so we say so rather than zeroing it.
+    Returns the verdict line (no trailing newline) or ``""`` when no counter.
     """
     if counter is None:
         return ""
     if action_total >= counter:
-        return f"**Success!** (Action {action_total} vs Counter {counter})\n"
+        return f"✅ **Success** vs Counter {counter}"
     return (
-        f"**Failure** (Action {action_total} vs Counter {counter})\n"
-        "-# Countered: cannot inflict stress; minimum impact still applies.\n"
+        f"❌ **Failure** vs Counter {counter} "
+        "_(no stress; minimum impact still applies)_"
     )
 
 
@@ -209,15 +226,12 @@ def stress_adjust(dicecounts, overwhelmed, staggered):
     try:
         size = next((s for s in (12, 10, 8, 6, 4) if dicecounts.get(s, 0) > 0), None)
         if size is None:
-            return "**Stress**\n-# No character dice to reduce.\n", dicecounts
+            return "Stress: no character dice to reduce", dicecounts
 
         dicecounts[size] -= 1
 
         if overwhelmed and staggered:
-            return (
-                f"**Stress: Overwhelmed & Staggered**\n*Scratched highest die: d{size}*\n",
-                dicecounts,
-            )
+            return f"Stress: scratched highest die d{size}", dicecounts
 
         smaller = _SMALLER_SIZE[size]
         if smaller is None:
@@ -225,10 +239,7 @@ def stress_adjust(dicecounts, overwhelmed, staggered):
         else:
             dicecounts[smaller] += 1
             detail = f"d{size} → d{smaller}"
-        return (
-            f"**Stress: Overwhelmed/Staggered**\n*Reduced highest die: {detail}*\n",
-            dicecounts,
-        )
+        return f"Stress: reduced highest die {detail}", dicecounts
     except Exception as exc:
         raise RollError("Coding error applying stress.") from exc
 
@@ -278,4 +289,4 @@ def boost_reduce(dicecounts, boosts, reduces):
 
     if not notes:
         return "", dicecounts
-    return "**Boost/Reduce**\n" + "".join(f"-# {n}\n" for n in notes), dicecounts
+    return " — ".join(notes), dicecounts
