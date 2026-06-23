@@ -134,6 +134,48 @@ def _parse_modifiers(dicestr):
     )
 
 
+def _mvk_result_lines(fortunedicerolls, characterdicerolls, mods):
+    """Build the crit header and the lines below the dice for an mvkroll.
+
+    Returns ``(crit_header, lines)`` where ``crit_header`` is the top-of-message
+    ``### …`` line (or ``""``) and ``lines`` are the breakdown subtext, the bold
+    ``Action Total -- Impact`` line, and any reminders/rewards/verdict that follow
+    it, in display order.
+    """
+    fumble_header, characterdicerolls = crit_fumble(
+        fortunedicerolls, characterdicerolls
+    )
+    cs_header, cs_choose = crit_success(fortunedicerolls)
+    possible = "" if fumble_header else possible_fumble(fortunedicerolls)
+
+    # Burn Out totals the highest three dice instead of two.
+    action_total, action_label, action_from = calc_action(
+        fortunedicerolls,
+        characterdicerolls,
+        keep=3 if mods.burnout else 2,
+        modifier=mods.action_mod,
+    )
+    impact_label, impact_from, min_note = calc_impact(
+        fortunedicerolls, characterdicerolls, modifier=mods.impact_mod
+    )
+
+    lines = [f"-# {action_from} — {impact_from}"]
+    if possible:
+        lines.append(possible)
+    lines.append(f"**{action_label} — {impact_label}**")
+    if min_note:
+        lines.append(f"-# {min_note}")
+    if cs_choose:
+        lines.append(cs_choose)
+    if fumble_header:
+        lines.append("**Gain 1 inspiration point**")
+    verdict = compare_counter(action_total, mods.counter)
+    if verdict:
+        lines.append(verdict)
+
+    return fumble_header or cs_header, lines
+
+
 def mvkroll(dicestr: str, prior_rolls=None):
     """Implementation of dice roller that applies MvK rules.
 
@@ -145,28 +187,34 @@ def mvkroll(dicestr: str, prior_rolls=None):
 
     logger.debug("Roll %s", {dicestr})
 
-    answer = ""
     mods = _parse_modifiers(dicestr)
 
     # Drop "boost dN"/"reduce dN" tokens so their target die isn't read as a die
     # to roll; the boost/reduce itself is applied from mods below.
     dicecounts = parse_dice(BOOST_REDUCE_RE.sub(" ", dicestr))
 
-    # advantage and disadvantage need _at least_ 2d20
-    # everything else only gets 1d20
+    # Pool-change notes (set-d20, boost/reduce, stress, advantage/disadvantage)
+    # are collected here and rendered together as one quiet subtext line.
+    pool_notes = []
+
+    # advantage and disadvantage need _at least_ 2d20; everything else gets 1d20.
     if mods.advantage or mods.disadvantage:
         if dicecounts[20] < 2:
             dicecounts[20] = 2
-            answer += "_Setting 2d20 for advantage/disadvantage_\n"
+            pool_notes.append("Set 2d20 for advantage/disadvantage")
     elif dicecounts[20] > 1 or dicecounts[20] == 0:
         dicecounts[20] = 1
-        answer += "_No advantage/disadvantage, setting 1d20_\n"
+        pool_notes.append("No advantage/disadvantage — using 1d20")
 
     # Pool changes happen before rolling: boost/reduce keywords, then stress
     # (which reduces/scratches the highest remaining character die *type*). Both
     # mutate dicecounts in place; we keep only their note text.
-    answer += boost_reduce(dicecounts, mods.boosts, mods.reduces)[0]
-    answer += stress_adjust(dicecounts, mods.overwhelmed, mods.staggered)[0]
+    for note in (
+        boost_reduce(dicecounts, mods.boosts, mods.reduces)[0],
+        stress_adjust(dicecounts, mods.overwhelmed, mods.staggered)[0],
+    ):
+        if note:
+            pool_notes.append(note)
 
     if prior_rolls is None:
         dicerolls = roll_dice(dicecounts)
@@ -182,13 +230,13 @@ def mvkroll(dicestr: str, prior_rolls=None):
     fortunedicerolls.sort(reverse=True)
     logger.debug("fortune rolls %s", fortunedicerolls)
 
-    adv_disadv_answer, fortunedicerolls = adv_disadv(
+    adv_note, fortunedicerolls = adv_disadv(
         mods.advantage, mods.disadvantage, dicecounts, dicerolls
     )
-    answer += adv_disadv_answer
+    if adv_note:
+        pool_notes.append(adv_note)
 
-    answer += print_dice(dicerolls)
-    answer += "\n"
+    dice_text = print_dice(dicerolls).rstrip()
 
     # dice d4-d12 are called "Character Dice"
     characterdicerolls = [
@@ -200,33 +248,21 @@ def mvkroll(dicestr: str, prior_rolls=None):
     if len(characterdicerolls) + len(fortunedicerolls) < 1:
         raise RollError("Not enough dice to roll")
 
-    possible_fumble_answer = possible_fumble(fortunedicerolls)
-
-    fumble_answer, characterdicerolls = crit_fumble(
-        fortunedicerolls, characterdicerolls
-    )
-    if fumble_answer:
-        answer += fumble_answer
-    elif possible_fumble_answer:
-        answer += possible_fumble_answer
-
-    answer += crit_success(fortunedicerolls)
-
-    # Burn Out totals the highest three dice instead of two.
-    action_answer, action_total = calc_action(
-        fortunedicerolls,
-        characterdicerolls,
-        keep=3 if mods.burnout else 2,
-        modifier=mods.action_mod,
-    )
-    answer += action_answer
-    answer += compare_counter(action_total, mods.counter)
-
-    answer += calc_impact(
-        fortunedicerolls, characterdicerolls, modifier=mods.impact_mod
+    crit_header, result_lines = _mvk_result_lines(
+        fortunedicerolls, characterdicerolls, mods
     )
 
-    return answer, rolls
+    # Assemble: a loud crit header on top, supporting detail as quiet -# subtext
+    # in the middle, and the headline numbers / rewards / verdict at the bottom.
+    lines = []
+    if crit_header:
+        lines.append(crit_header)
+    if pool_notes:
+        lines.append("-# " + " — ".join(pool_notes))
+    lines.append(f"-# {dice_text}")
+    lines.extend(result_lines)
+
+    return "\n".join(lines) + "\n", rolls
 
 
 def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
@@ -242,8 +278,6 @@ def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
 
     logger.debug("Roll %s", {dicestr})
 
-    answer = ""
-
     add_amount = parse_math(dicestr)
     logger.debug("add_amount %s", {add_amount})
 
@@ -253,9 +287,9 @@ def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
     else:
         dicerolls = merge_rolls(prior_rolls, dicecounts)
 
-    answer += print_dice(dicerolls)
-    answer += print_d20_special(dicerolls)
-    answer += "\n"
+    header, callout = print_d20_special(dicerolls)
+    dice_text = print_dice(dicerolls).rstrip()
+    total = sum(sum(values) for values in dicerolls.values()) + add_amount
 
     # A single d20 (modifiers don't count) is the standard 13th Age attack roll,
     # so that's when the escalation die applies.
@@ -263,22 +297,26 @@ def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
         count == 0 for size, count in dicecounts.items() if size != 20
     )
     show_escalation = single_d20 and escalation > 0
+
+    # A loud crit header on top; the dice and the modifier/escalation details as
+    # quiet -# subtext; the bold Total (and escalated total) at the bottom.
+    lines = []
+    if header:
+        lines.append(header)
+    lines.append(f"-# {dice_text}")
+    if callout:
+        lines.append(callout)
+
+    # Combine the flat modifier and the escalation die onto one subtext line.
+    if add_amount != 0 and show_escalation:
+        lines.append(f"-# Adjustment: {add_amount} + {NUMBER_EMOJI[escalation]}")
+    elif add_amount != 0:
+        lines.append(f"-# Adjustment: {add_amount}")
+    elif show_escalation:
+        lines.append(f"-# Esc: {NUMBER_EMOJI[escalation]}")
+
+    lines.append(f"**Total: {total}**")
     if show_escalation:
-        answer += f"-# Esc: {NUMBER_EMOJI[escalation]}\n"
+        lines.append(f"**w/Esc: {total + escalation}**")
 
-    total = 0
-
-    if add_amount != 0:
-        answer += f"Adjustment: {add_amount}\n"
-        total += add_amount
-
-    for size, values in dicerolls.items():
-        logger.debug("Dice size=%s values=%s", size, values)
-        total += sum(values)
-
-    answer += f"Total: **{total}**"
-
-    if show_escalation:
-        answer += f"\nw/Esc: **{total + escalation}**"
-
-    return answer, dicerolls
+    return "\n".join(lines) + "\n", dicerolls

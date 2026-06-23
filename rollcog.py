@@ -57,10 +57,15 @@ def echo_prefix(dicestr):
 
 
 def dice_line(text):
-    """Return the 'Dice: ...' line from a roll's rendered body, or None."""
+    """Return the 'Dice: ...' line from a roll's rendered body, or None.
+
+    The rollers render the dice as a quiet '-# Dice: ...' subtext line; the '-# '
+    prefix is stripped so the history entry strikes through just the dice.
+    """
     for line in text.split("\n"):
-        if line.startswith("Dice:"):
-            return line.rstrip()
+        stripped = line.removeprefix("-# ")
+        if stripped.startswith("Dice:"):
+            return stripped.rstrip()
     return None
 
 
@@ -102,7 +107,8 @@ class Roll(commands.Cog):
             except discord.HTTPException:
                 reply = None  # our reply is gone; post a fresh one
         if reply is None:
-            reply = await ctx.reply(content)
+            # Reply (so it threads under the trigger) but don't ping the author.
+            reply = await ctx.reply(content, mention_author=False)
         self._remember(
             ctx.message.id, RollState(reply, state.rolls, state.text, state.history)
         )
