@@ -74,6 +74,15 @@ def get_config():
     return config
 
 
+def get_database_path(config):
+    """Return the sqlite database path (config ``MAIN.database`` or a default).
+
+    The default lives alongside the code so a plain checkout works out of the box;
+    it is gitignored. Used for the per-guild prefix store (prefixstore.py).
+    """
+    return config["MAIN"].get("database", os.path.join(BASE_DIR, "mvkdicebot.sqlite3"))
+
+
 def get_primary_guild_ids(config):
     """Return the optional `primary_guilds` config value as a list of guild IDs.
 

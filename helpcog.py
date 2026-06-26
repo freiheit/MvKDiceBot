@@ -18,9 +18,14 @@
 # https://github.com/freiheit/MvKDiceBot
 """Help command for MvKDiceBot, usable as both ?help and /help."""
 
+import itertools
+
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+# Help sections are listed alphabetically by default; this one is pinned last.
+LAST_CATEGORY = "Configuration"
 
 
 class _HelpDestination:  # pylint: disable=too-few-public-methods
@@ -51,6 +56,43 @@ class HybridHelpCommand(commands.DefaultHelpCommand):
 
     def get_destination(self):
         return _HelpDestination(self.context)
+
+    async def send_bot_help(self, mapping, /):  # pylint: disable=unused-argument
+        """List sections like the default, but pin the Configuration section last.
+
+        ``DefaultHelpCommand`` orders sections alphabetically; we keep that for
+        everything except the ``LAST_CATEGORY`` section, which sorts to the end.
+        """
+        bot = self.context.bot
+        if bot.description:
+            self.paginator.add_line(bot.description, empty=True)
+
+        no_category = f"\u200b{self.no_category}:"
+
+        def get_category(command, *, no_category=no_category):
+            cog = command.cog
+            return cog.qualified_name + ":" if cog is not None else no_category
+
+        filtered = await self.filter_commands(bot.commands, sort=False)
+        max_size = self.get_max_size(filtered)
+
+        # Alphabetical, except LAST_CATEGORY is forced to the bottom.
+        filtered.sort(
+            key=lambda c: (get_category(c) == f"{LAST_CATEGORY}:", get_category(c))
+        )
+
+        for category, cmds in itertools.groupby(filtered, key=get_category):
+            cmds = (
+                sorted(cmds, key=lambda c: c.name) if self.sort_commands else list(cmds)
+            )
+            self.add_indented_commands(cmds, heading=category, max_size=max_size)
+
+        note = self.get_ending_note()
+        if note:
+            self.paginator.add_line()
+            self.paginator.add_line(note)
+
+        await self.send_pages()
 
 
 class Help(commands.Cog):

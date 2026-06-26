@@ -10,10 +10,18 @@ Dice bot for MvK ruleset...
 
 ## Commands
 
-The bot understands these commands. Each can be invoked three ways: with the
+The bot understands these commands. Each can be invoked three ways: with a
 text prefix (`?mvkroll 1d20 2d10`, plus aliases like `?r`, `?roll`, `?p`), by
 mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
 (`/mvkroll dice:1d20 2d10`).
+
+Each server has its own text prefixes. Servers the bot was already in keep the
+classic `?` and `/` (so `?r 1d20` and `/r 1d20` both work); a server the bot
+joins fresh starts with no text prefixes (only @-mention and slash commands). A
+member with the **Manage Server** permission changes them with `/setprefixes` —
+e.g. `/setprefixes ?/!`, or `/setprefixes none` for only @-mention and slash
+commands; run it with no argument to see the current set. The bot always responds
+to @-mentions and to its slash commands regardless.
 
 - `mvkroll` — rolls a dice pool and applies the MvK rules math (action total,
   impact, advantage/disadvantage, fumbles, and critical success). It also
@@ -42,6 +50,11 @@ mentioning the bot (`@MvkDiceBot roll 1d20 2d10`), or as a slash command
 - `help` — auto-generated command list and usage. Available as `?help`,
   `@MvkDiceBot help`, or `/help` (optionally pass a command name, e.g.
   `/help command:mvkroll`).
+- `setprefixes` — shows or sets this server's text command prefixes (pass `none`
+  to use only @-mention and slash commands). Available as `?setprefixes`,
+  `@MvkDiceBot setprefixes`, or `/setprefixes`, restricted to the server owner,
+  administrators, or members with Manage Server (and only shown in `?help` to
+  them).
 
 Editing a text/mention roll message updates the bot's existing reply and
 re-rolls only the dice you added (existing dice are kept). Each prior `Dice:`
