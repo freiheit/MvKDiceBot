@@ -19,14 +19,22 @@
 """Test module for MvKDiceBot"""
 
 import asyncio
+import os
 import random
 import re
 import sys
+import tempfile
 import unittest
+from types import SimpleNamespace
+
+import discord
+from discord.ext import commands
 
 import escalationcog
 import mvkdicebot
 import mvkroller as roller
+import prefixcog
+import prefixstore
 import rollcog
 
 
@@ -432,7 +440,7 @@ class TestBotCommands(unittest.TestCase):
 
     def test_prefix_commands_registered(self):
         """The primary command names resolve as text/prefix commands."""
-        for name in ("mvkroll", "plainroll"):
+        for name in ("mvkroll", "plainroll", "setprefixes"):
             with self.subTest(name=name):
                 self.assertIsNotNone(mvkdicebot.bot.get_command(name))
 
@@ -467,6 +475,7 @@ class TestBotCommands(unittest.TestCase):
             "esc",
             "nextround",
             "n",
+            "setprefixes",
         ):
             with self.subTest(name=name):
                 self.assertIn(name, app_names)
@@ -611,6 +620,103 @@ class TestEscalation(unittest.TestCase):
         maxed = escalationcog.format_value(escalationcog.MAX_VALUE)
         self.assertIn(":six:", maxed)
         self.assertIn("maximum", maxed)
+
+
+class TestPrefixStore(unittest.TestCase):
+    """Test per-guild prefix parsing and the sqlite-backed store."""
+
+    def test_parse_prefixes(self):
+        """Whitespace is ignored, order/dedup preserved, count capped."""
+        self.assertEqual(prefixstore.parse_prefixes("?/!"), ["?", "/", "!"])
+        self.assertEqual(prefixstore.parse_prefixes("? / !"), ["?", "/", "!"])
+        self.assertEqual(prefixstore.parse_prefixes("??//"), ["?", "/"])
+        self.assertEqual(prefixstore.parse_prefixes(""), [])
+        self.assertEqual(prefixstore.parse_prefixes("   "), [])
+        capped = prefixstore.parse_prefixes("abcdefghijklmnop")
+        self.assertEqual(len(capped), prefixstore.MAX_PREFIXES)
+
+    def test_format_prefixes(self):
+        """Prefixes render as space-separated inline code."""
+        self.assertEqual(prefixstore.format_prefixes(["?", "/"]), "`?` `/`")
+
+    def test_get_dm_defaults_and_unconfigured_guild_empty(self):
+        """DMs use the defaults; an unconfigured guild gets no text prefixes."""
+        store = prefixstore.PrefixStore(":memory:").load()
+        self.assertEqual(store.get(None), list(prefixstore.DEFAULT_PREFIXES))
+        self.assertEqual(store.get(123), [])
+
+    def test_set_and_get_roundtrip(self):
+        """A set value is returned for that guild but not others."""
+        store = prefixstore.PrefixStore(":memory:").load()
+        store.set(42, ["!", "."])
+        self.assertEqual(store.get(42), ["!", "."])
+        self.assertEqual(store.get(99), [])  # unconfigured guild -> mention/slash only
+        # Returned lists are copies, so a caller can't mutate the cache.
+        store.get(42).append("x")
+        self.assertEqual(store.get(42), ["!", "."])
+
+    def test_persists_across_reload(self):
+        """Values written to a file are reloaded by a fresh store."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefixes.sqlite3")
+            store = prefixstore.PrefixStore(path).load()
+            store.set(7, ["!", "?"])
+
+            reopened = prefixstore.PrefixStore(path).load()
+            self.assertEqual(reopened.get(7), ["!", "?"])
+
+    def test_created_flag(self):
+        """``created`` is True for a fresh/in-memory DB, False once the file exists."""
+        self.assertTrue(prefixstore.PrefixStore(":memory:").load().created)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "prefixes.sqlite3")
+            self.assertTrue(prefixstore.PrefixStore(path).load().created)
+            self.assertFalse(prefixstore.PrefixStore(path).load().created)
+
+    def test_backfill_only_unconfigured(self):
+        """backfill seeds defaults for new guilds, leaving configured ones (incl. empty)."""
+        store = prefixstore.PrefixStore(":memory:").load()
+        store.set(1, ["!"])  # already configured
+        store.set(2, [])  # explicitly cleared -- must stay empty
+        seeded = store.backfill([1, 2, 3])
+        self.assertEqual(seeded, 1)  # only guild 3
+        self.assertEqual(store.get(1), ["!"])
+        self.assertEqual(store.get(2), [])
+        self.assertEqual(store.get(3), list(prefixstore.DEFAULT_PREFIXES))
+
+
+class TestPrefixPermissions(unittest.TestCase):
+    """Who may run setprefixes: owner, admin, or Manage Server; nobody else."""
+
+    @staticmethod
+    def _ctx(uid, perms, owner=1, in_guild=True):
+        return SimpleNamespace(
+            author=SimpleNamespace(id=uid, guild_permissions=perms),
+            guild=SimpleNamespace(owner_id=owner) if in_guild else None,
+        )
+
+    def test_owner_admin_manage_allowed(self):
+        """The owner (even with no role perms), admins, and Manage Server pass."""
+        cases = [
+            (1, discord.Permissions.none()),  # owner, no role perms
+            (2, discord.Permissions(administrator=True)),
+            (3, discord.Permissions(manage_guild=True)),
+        ]
+        for uid, perms in cases:
+            with self.subTest(uid=uid):
+                self.assertTrue(prefixcog.may_manage_prefixes(self._ctx(uid, perms)))
+
+    def test_plain_member_denied(self):
+        """A member without the needed permissions is rejected."""
+        ctx = self._ctx(4, discord.Permissions(send_messages=True))
+        with self.assertRaises(commands.MissingPermissions):
+            prefixcog.may_manage_prefixes(ctx)
+
+    def test_dm_denied(self):
+        """There's no guild to configure in a DM."""
+        ctx = self._ctx(1, discord.Permissions.all(), in_guild=False)
+        with self.assertRaises(commands.NoPrivateMessage):
+            prefixcog.may_manage_prefixes(ctx)
 
 
 if __name__ == "__main__":

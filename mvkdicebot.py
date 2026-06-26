@@ -24,6 +24,7 @@ import discord
 from discord.ext import commands
 
 import mvkconfig
+import prefixstore
 
 __version__ = "1.0.0"
 DESCRIPTION = """A dice rolling bot for MvK
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # Cogs (loaded as discord.py extensions in setup_hook). Each module provides the
 # commands and an `async def setup(bot)` entry point.
-EXTENSIONS = ("rollcog", "helpcog", "escalationcog")
+EXTENSIONS = ("rollcog", "helpcog", "escalationcog", "prefixcog")
 
 # Guild IDs to register slash commands in directly, for instant updates instead
 # of waiting on global propagation. Populated from the config in main(); an empty
@@ -47,8 +48,23 @@ intents = discord.Intents.default()
 # intents.messages = True
 intents.message_content = True  # pylint: disable=assigning-non-slot
 
+
+async def get_prefix(the_bot, message):
+    """Resolve the command prefixes for a message.
+
+    Always includes the two @-mention forms, plus the guild's configured text
+    prefixes from ``the_bot.prefix_store`` (the defaults when a guild hasn't set
+    any, or in DMs). Slash commands are separate application commands and work
+    regardless of this.
+    """
+    store = getattr(the_bot, "prefix_store", None)
+    guild_id = message.guild.id if message.guild else None
+    prefixes = store.get(guild_id) if store else list(prefixstore.DEFAULT_PREFIXES)
+    return commands.when_mentioned_or(*prefixes)(the_bot, message)
+
+
 bot = commands.AutoShardedBot(
-    command_prefix=commands.when_mentioned_or("?", "/"),
+    command_prefix=get_prefix,
     description=DESCRIPTION,
     intents=intents,
 )
@@ -93,9 +109,21 @@ async def setup_hook():
 
 @bot.event
 async def on_ready():
-    """Log when we start up"""
+    """Log when we start up, and seed default prefixes on first run.
+
+    The first time the bot runs with a brand-new database, seed the classic
+    ``?``/``/`` prefixes onto the guilds it's already in so they keep working;
+    guilds joined afterwards start mention/slash only. Guarded so it runs once
+    even though on_ready can fire again on reconnects.
+    """
     # pylint: disable=logging-fstring-interpolation
     logger.warning(f"Logged in as {bot.user} (ID {bot.user.id})")
+
+    store = getattr(bot, "prefix_store", None)
+    if store is not None and store.created:
+        seeded = store.backfill(guild.id for guild in bot.guilds)
+        store.created = False
+        logger.warning("Seeded default prefixes for %d existing guild(s)", seeded)
 
 
 @bot.tree.error
@@ -108,6 +136,17 @@ async def on_app_command_error(interaction, error):
     "This interaction failed". If the command already replied (e.g. a RollError
     message), is_done() is true and we only log.
     """
+    # A failed permission/guild check isn't a bug -- tell the user plainly.
+    if isinstance(error, discord.app_commands.CheckFailure):
+        if not interaction.response.is_done():
+            try:
+                await interaction.response.send_message(
+                    "You don't have permission to use that command.", ephemeral=True
+                )
+            except discord.HTTPException:
+                logger.exception("Failed to send permission error message")
+        return
+
     logger.error("Error in application command %s", interaction.command, exc_info=error)
     if not interaction.response.is_done():
         try:
@@ -122,6 +161,12 @@ def main():
     """Load configuration and run the bot."""
     config = mvkconfig.get_config()
     primary_guild_ids.extend(mvkconfig.get_primary_guild_ids(config))
+
+    # Load per-guild prefixes once at startup; changes are written through to the
+    # database as they happen (see prefixstore / prefixcog).
+    bot.prefix_store = prefixstore.PrefixStore(
+        mvkconfig.get_database_path(config)
+    ).load()
 
     bot.run(
         token=config["MAIN"].get("authtoken"),
