@@ -48,7 +48,7 @@ intents = discord.Intents.default()
 intents.message_content = True  # pylint: disable=assigning-non-slot
 
 bot = commands.AutoShardedBot(
-    command_prefix=commands.when_mentioned_or("?"),
+    command_prefix=commands.when_mentioned_or("?", "/"),
     description=DESCRIPTION,
     intents=intents,
 )
