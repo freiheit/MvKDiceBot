@@ -27,7 +27,7 @@ import mvkconfig
 import prefixstore
 
 __version__ = "1.0.0"
-DESCRIPTION = """A dice rolling bot for MvK
+DESCRIPTION = """A dice rolling bot for Mecha Vs Kaiju (MvK) and 13th Age
 """
 
 # Module-level logger; level/handlers are configured by mvkconfig.get_config().

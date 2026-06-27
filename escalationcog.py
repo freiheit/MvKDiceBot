@@ -112,7 +112,10 @@ ACTION_HELP = "Blank to show; '+1'/'next', '-1'/'back', 'reset', or a number 0-6
 
 
 class Escalation(commands.Cog):
-    """Tracks the 13th Age escalation die, one value per channel."""
+    """Tracks the 13th Age escalation die, one value per channel.
+
+    Resets to 0 after 12 hours of inactivity.
+    """
 
     def __init__(self, bot):
         self.bot = bot
@@ -142,12 +145,16 @@ class Escalation(commands.Cog):
     @commands.hybrid_command(aliases=["esc", "e"])
     @app_commands.describe(action=ACTION_HELP)
     async def escalation(self, ctx, *, action: str = ""):
-        """Show or change the escalation die for this channel.
+        """Show or change this channel's 13th Age escalation die (0-6).
 
-        The escalation die (13th Age) starts at 0, goes up 1 per round to a max
-        of 6, and resets between battles. Usable as '?escalation'/'/escalation'
-        (text aliases '?esc', '?e'; also the '/esc' slash command). A channel's
-        value resets to 0 after 12 hours of inactivity.
+        It starts at 0, goes up 1 per round to a max of 6, and resets between
+        battles. With no argument it shows the current value; otherwise:
+        - `+1` / `next` — advance a round
+        - `-1` / `back` — step down
+        - `reset` — start a new battle (back to 0)
+        - a number `0`-`6` — set it directly, e.g. `escalation 3`
+
+        The value resets to 0 after 12 hours of inactivity.
         """
         await self._handle(
             ctx.channel.id, action, functools.partial(ctx.reply, mention_author=False)
@@ -166,13 +173,13 @@ class Escalation(commands.Cog):
             interaction.channel_id, action, interaction.response.send_message
         )
 
-    @commands.hybrid_command(name="nextround", aliases=["next", "n"])
+    @commands.hybrid_command(
+        name="nextround",
+        aliases=["next", "n"],
+        description="Advance the escalation die by a round",
+    )
     async def nextround(self, ctx):
-        """Advance the escalation die by a round (same as 'escalation next').
-
-        Usable as '?nextround'/'/nextround' (text aliases '?next', '?n'; also the
-        '/n' slash command).
-        """
+        """Increment the escalation die by 1; max 6 (same as `escalation next`)."""
         await self._handle(
             ctx.channel.id, "next", functools.partial(ctx.reply, mention_author=False)
         )

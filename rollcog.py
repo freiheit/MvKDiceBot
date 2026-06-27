@@ -76,8 +76,8 @@ def render_with_history(history, body):
     return body
 
 
-class Roll(commands.Cog):
-    """MvK dice-rolling commands."""
+class Roll(commands.Cog, name="Dice Rolling"):
+    """Dice Rolling commands."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -146,36 +146,37 @@ class Roll(commands.Cog):
             raise
         await interaction.response.send_message(prefix + text)
 
-    @commands.hybrid_command(aliases=["r", "R", "roll", "rolldice", "diceroll"])
+    @commands.hybrid_command(
+        aliases=["r", "R", "roll", "rolldice", "diceroll"],
+        # brief is the ?help bullet (Markdown ok); description is the slash-UI text
+        # (shown literally by Discord, so no Markdown there).
+        brief="Rolls NdN format pool of dice and does **MvK** rules math for you.",
+        description="Roll a dice pool with MvK rules math",
+    )
     @app_commands.describe(dicestr=MVK_DICE_HELP)
     async def mvkroll(self, ctx, *, dicestr: str):
-        """Rolls NdN format pool of dice and does MvK rules math for you.
+        """Rolls an NdN-format pool of dice and does MvK rules math for you.
 
-        Usable as the '?roll'/'@MvkDiceBot roll' text command or the '/mvkroll'
-        (alias '/r') slash command.
+        Example: `roll 1d20 2d10 d8 2d6`
 
-        Example: '?roll 1d20 2d10 d8 2d6'
+        Add `advantage` to discard the lowest d20, or `disadvantage` to discard
+        the highest. Example: `roll 2d20 2d10 advantage`
 
-        Add 'advantage' to discard lowest d20.
-        Add 'disadvantage' to discard highest d20.
-        Example: '?roll 2d20 2d10 advantage'
-        Example: '?roll 2d20 2d10 disadvantage'
-
-        Add 'overwhelmed' or 'staggered' (stress) to reduce your largest die one
+        Add `overwhelmed` or `staggered` (stress) to reduce your largest die one
         size before rolling; both together scratch it instead.
-        Add 'vs N' (or 'counter N') to compare your action total to a counter.
-        Example: '?roll 1d20 2d10 overwhelmed vs 21'
+        Add `vs N` (or `counter N`) to compare your action total to a counter.
+        Example: `roll 1d20 2d10 overwhelmed vs 21`
 
         More keywords:
-        - '+N'/'-N' adjust the action total; 'impact +N' adjusts impact.
-        - 'boost dN'/'reduce dN' step a die up/down a size before rolling
+        - `+N`/`-N` adjust the action total; `impact +N` adjusts impact.
+        - `boost dN`/`reduce dN` step a die up/down a size before rolling
           (boosting a d12 adds a d4; reducing a d4 removes it).
-        - 'burnout' totals your highest three dice instead of two.
-        - 'unstable' applies -1 to the action total; 'burst' adds +2 impact and
-          rolls with disadvantage (add the doubled Drive die yourself).
+        - `burnout` totals your highest three dice instead of two.
+        - `unstable` applies `-1` to the action total; `burst` adds `+2` impact
+          and rolls with disadvantage (add the doubled Drive die yourself).
 
-        Ignores anything extra it doesn't understand. Editing a text roll re-rolls
-        only the dice you added and updates the same reply.
+        Ignores anything extra it doesn't understand. Editing a roll re-rolls only
+        the dice you added and updates the same reply.
         """
         if ctx.interaction is None:
             await self._run_text_roll(ctx, mvkroller.mvkroll, dicestr)
@@ -194,27 +195,30 @@ class Roll(commands.Cog):
             "justdice",
             "plain",
             "dice",
-        ]
+        ],
+        brief=(
+            "Rolls NdN format pool of dice. Only accepts d20, d12, d10, d8, d6 and "
+            "d4 dice. With some **13th Age** extras."
+        ),
+        description="Roll dice and total them (with 13th Age extras)",
     )
     @app_commands.describe(dicestr=PLAIN_DICE_HELP)
     async def plainroll(self, ctx, *, dicestr: str):
-        """Rolls NdN format pool of dice. Only accepts d20, d12, d10, d8, d6 and d4 dice.
+        """Rolls a pool of dice for any d20 game, with some 13th Age extras.
 
-        Usable as the '?p'/'@MvkDiceBot plainroll' text command or the '/plainroll'
-        (alias '/p') slash command.
+        Only accepts d20, d12, d10, d8, d6 and d4 dice. Accepts multiple `+N` and
+        `-N` modifiers and prints a total.
 
-        For single d20, may call out likely special things like 20=crit, 1=fail, even and odd.
+        For a single d20 it calls out likely special results (`20` = crit,
+        `1` = fail, even/odd) and adds this channel's 13th Age escalation die to
+        the roll (set it with the `escalation` command).
 
-        Accepts multiple +N and -N modifiers.
+        Example: `justroll 1d20 2d10 d8 2d6 d6` (works out that it's 3d6)
+        Example: `p 1d20 +5 +2` (adds 7 to whatever is rolled)
 
-        Prints a total of all the dice and the modifiers.
-
-        Example: '?justroll 1d20 2d10 d8 2d6 d6' (note: will work out that it's 3d6)
-        Example: '?p 1d20 +5 +2' (note: will add 7 to whatever is rolled)
-
-        Ignores anything extra it doesn't understand.  Doesn't handle
-        advantage/disadvantage, since in many rules and situations an 18 might
-        be better than a 19 or a 2 better than a 16.
+        Ignores anything it doesn't understand. Doesn't handle
+        advantage/disadvantage, since an 18 might be better than a 19, or a 2
+        better than a 16.
         """
         roller = self._plainroller(ctx.channel.id)
         if ctx.interaction is None:
