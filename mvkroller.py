@@ -372,7 +372,7 @@ def average(dicestr: str, prior_rolls=None):  # pylint: disable=unused-argument
     mean = sum(count * (size + 1) / 2 for size, count in dicecounts.items())
     total = mean + add_amount
     # Each die's mean ends in .5, so a pool total is whole or .5; show it tidily.
-    shown = int(total) if total == int(total) else total
+    shown = int(total) if total.is_integer() else total
 
     pool = " ".join(
         f"{count}d{size}" for size, count in dicecounts.items() if count > 0
