@@ -32,9 +32,12 @@ import re
 from rollcommon import (
     NUMBER_EMOJI,
     RollError,
+    merge_any,
     merge_rolls,
+    parse_any_dice,
     parse_dice,
     print_dice,
+    roll_any,
     roll_dice,
 )
 from rollmvkhelpers import (
@@ -318,5 +321,33 @@ def plainroll(dicestr: str, escalation: int = 0, prior_rolls=None):
     lines.append(f"**Total: {total}**")
     if show_escalation:
         lines.append(f"**w/Esc: {total + escalation}**")
+
+    return "\n".join(lines) + "\n", dicerolls
+
+
+def anyroll(dicestr: str, prior_rolls=None):
+    """Roll a pool of dice of ANY size (d2, d3, d7, d100, ...), plus +/- modifiers.
+
+    Like ``plainroll`` but with no die-size restriction and none of the d20
+    special callouts or escalation die -- just the dice and a total. Returns
+    ``(text, rolls)``; passing a previous ``rolls`` as ``prior_rolls`` reuses
+    those dice and only rolls newly-added ones (for edited rolls).
+    """
+
+    logger.debug("Roll %s", {dicestr})
+
+    add_amount = parse_math(dicestr)
+    dicecounts = parse_any_dice(dicestr)
+    if prior_rolls is None:
+        dicerolls = roll_any(dicecounts)
+    else:
+        dicerolls = merge_any(prior_rolls, dicecounts)
+
+    total = sum(sum(values) for values in dicerolls.values()) + add_amount
+
+    lines = [f"-# {print_dice(dicerolls).rstrip()}"]
+    if add_amount != 0:
+        lines.append(f"-# Adjustment: {add_amount}")
+    lines.append(f"**Total: {total}**")
 
     return "\n".join(lines) + "\n", dicerolls
