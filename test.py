@@ -450,6 +450,13 @@ class TestAnyRoll(unittest.TestCase):
         # Unchanged count reuses everything (no reroll).
         self.assertEqual(roller.merge_any({100: [42]}, {100: 1})[100], [42])
 
+    def test_pool_size_cap(self):
+        """A pool larger than the cap is rejected (keeps output under the limit)."""
+        with self.assertRaises(roller.RollError):
+            roller.roll_any({6: 1000})
+        with self.assertRaises(roller.RollError):
+            roller.roll_dice({20: 1000})
+
     def test_anyroll_output(self):
         """anyroll formats like plainroll: -# Dice, optional -# Adjustment, **Total**."""
         text, rolls = roller.anyroll("d100 +17", prior_rolls={100: [42]})
@@ -486,9 +493,10 @@ class TestAverage(unittest.TestCase):
         self.assertIn("**Average: 14**", roller.average("d20 d6")[0])
 
     def test_average_rejects_nonstandard_dice(self):
-        """Like plainroll, only standard d4-d20 dice are accepted."""
-        with self.assertRaises(roller.RollError):
-            roller.average("d7")
+        """Non-standard dice are rejected with a message that names the size."""
+        with self.assertRaises(roller.RollError) as ctx:
+            roller.average("d100")
+        self.assertIn("d100", ctx.exception.getMessage())
 
 
 class TestBotCommands(unittest.TestCase):

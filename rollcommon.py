@@ -55,6 +55,10 @@ class RollError(Exception):
         return self.message
 
 
+# Matches an optional count, optional spaces, 'd', and a die size (e.g. "3d6").
+_DICE_RE = re.compile(r"([0-9]*) *[dD]([0-9]+)")
+
+
 def parse_dice(dicestr: str):
     """Parses the dice string and returns a dictionary of dieSize->count"""
     # types of dice we're looking for:
@@ -67,10 +71,8 @@ def parse_dice(dicestr: str):
         4: 0,
     }
 
-    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
-
     try:
-        for count, size in re.findall(pattern_ndn, dicestr):
+        for count, size in re.findall(_DICE_RE, dicestr):
             logger.debug("Roll count=%s size=%s", count, size)
             size = int(size)
             if len(count) >= 1:
@@ -80,11 +82,26 @@ def parse_dice(dicestr: str):
             if size in dicecounts:
                 dicecounts[size] += count
             else:
-                raise RollError(f"Invalid dice size d{size}")
+                raise RollError(
+                    f"Invalid dice size d{size} (only d4, d6, d8, d10, d12, d20)."
+                )
+    except RollError:
+        raise  # keep the specific "Invalid dice size" message
     except Exception as exc:
         raise RollError("Exception while parsing dice.") from exc
 
     return dicecounts
+
+
+# Cap a pool so a roll's rendered dice list stays within Discord's message limit.
+MAX_DICE = 100
+
+
+def _check_pool_size(dicecounts):
+    """Raise if a pool would roll more than MAX_DICE dice (output too long)."""
+    total = sum(dicecounts.values())
+    if total > MAX_DICE:
+        raise RollError(f"Too many dice to roll ({total}); the max is {MAX_DICE}.")
 
 
 def _roll_one(size, rand_source):
@@ -105,6 +122,7 @@ def roll_dice(dicecounts, rand_source=None):
     dicerolls = _empty_dicerolls()
 
     try:
+        _check_pool_size(dicecounts)
         if rand_source is None:
             rand_source = random.Random()
 
@@ -113,6 +131,8 @@ def roll_dice(dicecounts, rand_source=None):
                 dicerolls[size] = [
                     _roll_one(size, rand_source) for idx in range(0, num)
                 ]
+    except RollError:
+        raise
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
@@ -131,6 +151,7 @@ def merge_rolls(prior, dicecounts, rand_source=None):
     dicerolls = _empty_dicerolls()
 
     try:
+        _check_pool_size(dicecounts)
         if rand_source is None:
             rand_source = random.Random()
 
@@ -140,6 +161,8 @@ def merge_rolls(prior, dicecounts, rand_source=None):
             kept = rand_source.sample(have, want) if want < len(have) else have
             extra = [_roll_one(size, rand_source) for _ in range(want - len(kept))]
             dicerolls[size] = kept + extra
+    except RollError:
+        raise
     except Exception as exc:
         raise RollError("Exception while merging dice rolls.") from exc
 
@@ -153,11 +176,9 @@ def parse_any_dice(dicestr: str):
     d4-d20 restriction. Returns ``{size: count}`` ordered largest-die-first;
     a size below 1 (e.g. ``d0``) raises ``RollError``.
     """
-    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
-
     counts = {}
     try:
-        for count, size in re.findall(pattern_ndn, dicestr):
+        for count, size in re.findall(_DICE_RE, dicestr):
             size = int(size)
             if size < 1:
                 raise RollError(f"Invalid dice size d{size}")
@@ -180,11 +201,14 @@ def roll_any(dicecounts, rand_source=None):
     if rand_source is None:
         rand_source = random.Random()
     try:
+        _check_pool_size(dicecounts)
         return {
             size: [_roll_one(size, rand_source) for _ in range(num)]
             for size, num in dicecounts.items()
             if num > 0
         }
+    except RollError:
+        raise
     except Exception as exc:
         raise RollError("Exception while rolling dice.") from exc
 
@@ -199,6 +223,7 @@ def merge_any(prior, dicecounts, rand_source=None):
     if rand_source is None:
         rand_source = random.Random()
     try:
+        _check_pool_size(dicecounts)
         merged = {}
         for size in sorted(set(prior) | set(dicecounts), reverse=True):
             want = dicecounts.get(size, 0)
@@ -210,6 +235,8 @@ def merge_any(prior, dicecounts, rand_source=None):
             if rolled:
                 merged[size] = rolled
         return merged
+    except RollError:
+        raise
     except Exception as exc:
         raise RollError("Exception while merging dice rolls.") from exc
 
