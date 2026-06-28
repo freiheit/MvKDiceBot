@@ -418,6 +418,79 @@ class TestRoller(unittest.TestCase):
         self.assertTrue(any(line.startswith("Choose:") for line in lines))
 
 
+class TestAnyRoll(unittest.TestCase):
+    """Tests for anyroll: any die size, pools, modifiers, total (no special rules)."""
+
+    def test_parse_any_dice(self):
+        """Any die size is accepted, pools aggregate, result is largest-die-first."""
+        self.assertEqual(roller.parse_any_dice("3d3 d100 +17"), {100: 1, 3: 3})
+        self.assertEqual(roller.parse_any_dice("d7 d2 2d3"), {7: 1, 3: 2, 2: 1})
+        self.assertEqual(roller.parse_any_dice("d20 2d6"), {20: 1, 6: 2})
+        self.assertEqual(roller.parse_any_dice(""), {})
+
+    def test_parse_any_dice_bad_size(self):
+        """A die below 1 (e.g. d0) is rejected."""
+        with self.assertRaises(roller.RollError):
+            roller.parse_any_dice("d0")
+
+    def test_roll_any(self):
+        """roll_any rolls each size in range and only includes positive counts."""
+        out = roller.roll_any({100: 1, 3: 2, 8: 0}, random.Random(7))
+        self.assertEqual(set(out), {100, 3})  # d8 with count 0 omitted
+        self.assertEqual(len(out[3]), 2)
+        self.assertTrue(1 <= out[100][0] <= 100)
+        self.assertTrue(all(1 <= v <= 3 for v in out[3]))
+
+    def test_merge_any_keeps_prior_and_rolls_extra(self):
+        """Editing reuses prior dice and only rolls the newly-added ones."""
+        merged = roller.merge_any({3: [1, 2]}, {3: 3}, random.Random(0))
+        self.assertEqual(len(merged[3]), 3)
+        self.assertEqual(merged[3][:2], [1, 2])
+        self.assertTrue(1 <= merged[3][2] <= 3)
+        # Unchanged count reuses everything (no reroll).
+        self.assertEqual(roller.merge_any({100: [42]}, {100: 1})[100], [42])
+
+    def test_anyroll_output(self):
+        """anyroll formats like plainroll: -# Dice, optional -# Adjustment, **Total**."""
+        text, rolls = roller.anyroll("d100 +17", prior_rolls={100: [42]})
+        self.assertEqual(rolls, {100: [42]})
+        self.assertIn("-# Dice: 1d100[42]", text)
+        self.assertIn("-# Adjustment: 17", text)
+        self.assertIn("**Total: 59**", text)
+        # No modifier -> no Adjustment line; no crit/even/odd/escalation callouts.
+        text, _ = roller.anyroll("3d3", prior_rolls={3: [1, 2, 3]})
+        self.assertIn("-# Dice: 3d3[1, 2, 3]", text)
+        self.assertIn("**Total: 6**", text)
+        self.assertNotIn("Adjustment", text)
+        self.assertNotIn("Esc", text)
+
+
+class TestAverage(unittest.TestCase):
+    """Tests for the average command: per-die mean (size+1)/2, modifiers, total."""
+
+    def test_average_single_die(self):
+        """A single die shows its exact mean (half max + 0.5)."""
+        text, rolls = roller.average("d20")
+        self.assertEqual(rolls, {})
+        self.assertIn("-# Dice: 1d20", text)
+        self.assertIn("**Average: 10.5**", text)
+        self.assertIn("**Average: 2.5**", roller.average("d4")[0])
+
+    def test_average_pool_and_modifier(self):
+        """Pools sum, modifiers apply, whole results drop the .0."""
+        text, _ = roller.average("2d6 +3")  # 7 + 3 = 10
+        self.assertIn("-# Dice: 2d6", text)
+        self.assertIn("-# Adjustment: 3", text)
+        self.assertIn("**Average: 10**", text)
+        # d20 + d6 = 10.5 + 3.5 = 14 (whole)
+        self.assertIn("**Average: 14**", roller.average("d20 d6")[0])
+
+    def test_average_rejects_nonstandard_dice(self):
+        """Like plainroll, only standard d4-d20 dice are accepted."""
+        with self.assertRaises(roller.RollError):
+            roller.average("d7")
+
+
 class TestBotCommands(unittest.TestCase):
     """Test that the bot exposes both prefix and slash (app) commands.
 
@@ -440,7 +513,7 @@ class TestBotCommands(unittest.TestCase):
 
     def test_prefix_commands_registered(self):
         """The primary command names resolve as text/prefix commands."""
-        for name in ("mvkroll", "plainroll", "setprefixes"):
+        for name in ("mvkroll", "plainroll", "anyroll", "average", "setprefixes"):
             with self.subTest(name=name):
                 self.assertIsNotNone(mvkdicebot.bot.get_command(name))
 
@@ -451,6 +524,10 @@ class TestBotCommands(unittest.TestCase):
             "roll": "mvkroll",
             "p": "plainroll",
             "justroll": "plainroll",
+            "a": "anyroll",
+            "rollany": "anyroll",
+            "mean": "average",
+            "m": "average",
             "esc": "escalation",
             "e": "escalation",
             "next": "nextround",
@@ -468,9 +545,13 @@ class TestBotCommands(unittest.TestCase):
         for name in (
             "mvkroll",
             "plainroll",
+            "anyroll",
+            "average",
             "help",
             "r",
             "p",
+            "a",
+            "m",
             "escalation",
             "esc",
             "nextround",

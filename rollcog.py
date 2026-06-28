@@ -34,6 +34,8 @@ MVK_DICE_HELP = (
     "boost/reduce dN, burnout, unstable, burst, +N, impact+N, vs N (see ?help)."
 )
 PLAIN_DICE_HELP = "Dice to roll plus +N/-N modifiers, e.g. '1d20 2d10 d8 +5'"
+ANY_DICE_HELP = "Any dice (d2, d3, d7, d100, ...) plus +N/-N modifiers, e.g. 'd100 +17'"
+AVERAGE_DICE_HELP = "Standard dice to average plus +N/-N modifiers, e.g. '2d6 +3'"
 
 # How many recent text rolls to remember (message -> our reply) for edit handling.
 MAX_TRACKED = 200
@@ -226,8 +228,49 @@ class Roll(commands.Cog, name="Dice Rolling"):
         else:
             await self._run_slash_roll(ctx.interaction, roller, dicestr)
 
-    # Discord application commands have no alias mechanism, so the short '/r' and
-    # '/p' forms are registered as their own slash commands that reuse the rollers.
+    @commands.hybrid_command(
+        aliases=["a", "rollany"],
+        brief="Rolls any dice (d2, d3, d7, d100, ...) and totals them.",
+        description="Roll any dice and total them",
+    )
+    @app_commands.describe(dicestr=ANY_DICE_HELP)
+    async def anyroll(self, ctx, *, dicestr: str):
+        """Rolls a pool of dice of any size, plus `+N`/`-N` modifiers.
+
+        Unlike `plainroll` it doesn't restrict die sizes, so `d100`, `3d3`, `d7`,
+        `d2`, and so on all work. It just totals the dice and modifiers, with no
+        special MvK or 13th Age rules and no crit/even/odd callouts.
+        Example: `anyroll d100 +17`
+        Example: `anyroll 3d3 d6`
+        """
+        if ctx.interaction is None:
+            await self._run_text_roll(ctx, mvkroller.anyroll, dicestr)
+        else:
+            await self._run_slash_roll(ctx.interaction, mvkroller.anyroll, dicestr)
+
+    @commands.hybrid_command(
+        name="average",
+        aliases=["mean", "m"],
+        brief="Averages a dice pool instead of rolling it (d20 → 10.5).",
+        description="Show the average result of a dice pool",
+    )
+    @app_commands.describe(dicestr=AVERAGE_DICE_HELP)
+    async def average(self, ctx, *, dicestr: str):
+        """Totals the *average* result of a dice pool instead of rolling it.
+
+        Accepts the standard dice (d20, d12, d10, d8, d6, d4) plus `+N`/`-N`
+        modifiers. Each die averages to half its max + 0.5 (d4 → 2.5, d20 → 10.5).
+        13th Age uses this for damage and recovery rolls (never attack or skill
+        checks). Example: `average 2d6 +3`
+        """
+        if ctx.interaction is None:
+            await self._run_text_roll(ctx, mvkroller.average, dicestr)
+        else:
+            await self._run_slash_roll(ctx.interaction, mvkroller.average, dicestr)
+
+    # Discord application commands have no alias mechanism, so the short '/r',
+    # '/p', '/a', and '/m' forms are registered as their own slash commands that
+    # reuse the rollers.
     @app_commands.command(
         name="r", description="Roll a dice pool with MvK rules math (same as /mvkroll)"
     )
@@ -246,6 +289,22 @@ class Roll(commands.Cog, name="Dice Rolling"):
         """Slash-command alias (/p) for /plainroll."""
         roller = self._plainroller(interaction.channel_id)
         await self._run_slash_roll(interaction, roller, dicestr)
+
+    @app_commands.command(
+        name="a", description="Roll any dice and total them (same as /anyroll)"
+    )
+    @app_commands.describe(dicestr=ANY_DICE_HELP)
+    async def anyroll_slash_alias(self, interaction: discord.Interaction, dicestr: str):
+        """Slash-command alias (/a) for /anyroll."""
+        await self._run_slash_roll(interaction, mvkroller.anyroll, dicestr)
+
+    @app_commands.command(
+        name="m", description="Average a dice pool (same as /average)"
+    )
+    @app_commands.describe(dicestr=AVERAGE_DICE_HELP)
+    async def average_slash_alias(self, interaction: discord.Interaction, dicestr: str):
+        """Slash-command alias (/m) for /average."""
+        await self._run_slash_roll(interaction, mvkroller.average, dicestr)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):

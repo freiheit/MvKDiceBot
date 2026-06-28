@@ -146,6 +146,74 @@ def merge_rolls(prior, dicecounts, rand_source=None):
     return dicerolls
 
 
+def parse_any_dice(dicestr: str):
+    """Parse a dice string allowing ANY die size (d2, d3, d7, d100, ...).
+
+    Same ``NdN``/pool/whitespace handling as ``parse_dice`` but without the
+    d4-d20 restriction. Returns ``{size: count}`` ordered largest-die-first;
+    a size below 1 (e.g. ``d0``) raises ``RollError``.
+    """
+    pattern_ndn = re.compile(r"([0-9]*) *[dD]([0-9]+)")
+
+    counts = {}
+    try:
+        for count, size in re.findall(pattern_ndn, dicestr):
+            size = int(size)
+            if size < 1:
+                raise RollError(f"Invalid dice size d{size}")
+            num = int(count) if count else 1
+            counts[size] = counts.get(size, 0) + num
+    except RollError:
+        raise
+    except Exception as exc:
+        raise RollError("Exception while parsing dice.") from exc
+
+    return {size: counts[size] for size in sorted(counts, reverse=True)}
+
+
+def roll_any(dicecounts, rand_source=None):
+    """Roll a pool of arbitrary-sized dice.
+
+    Returns ``{size: [rolls]}`` for each size with a positive count, preserving
+    ``dicecounts``'s order (unlike ``roll_dice``, no fixed d4-d20 keys are added).
+    """
+    if rand_source is None:
+        rand_source = random.Random()
+    try:
+        return {
+            size: [_roll_one(size, rand_source) for _ in range(num)]
+            for size, num in dicecounts.items()
+            if num > 0
+        }
+    except Exception as exc:
+        raise RollError("Exception while rolling dice.") from exc
+
+
+def merge_any(prior, dicecounts, rand_source=None):
+    """Arbitrary-size counterpart to ``merge_rolls`` for editing ``anyroll``.
+
+    Keeps prior rolls per size and rolls only newly-added dice (and keeps a
+    random subset when a count drops), over the union of sizes in ``prior`` and
+    ``dicecounts``, ordered largest-die-first. Sizes that end up empty are omitted.
+    """
+    if rand_source is None:
+        rand_source = random.Random()
+    try:
+        merged = {}
+        for size in sorted(set(prior) | set(dicecounts), reverse=True):
+            want = dicecounts.get(size, 0)
+            have = list(prior.get(size, []))
+            kept = rand_source.sample(have, want) if want < len(have) else have
+            rolled = kept + [
+                _roll_one(size, rand_source) for _ in range(want - len(kept))
+            ]
+            if rolled:
+                merged[size] = rolled
+        return merged
+    except Exception as exc:
+        raise RollError("Exception while merging dice rolls.") from exc
+
+
 def print_dice(dicerolls):
     "Creates a string rep of the rolled dice"
     answer = "Dice: "

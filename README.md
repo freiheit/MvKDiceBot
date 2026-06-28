@@ -39,6 +39,15 @@ to @-mentions and to its slash commands regardless.
   d20 it also calls out 13th Age-flavored results (crit, fumble, even/odd,
   possible two-weapon hit) and, when this channel's escalation die is set, shows
   it and an escalation-adjusted total. Also available as the slash command `/p`.
+- `anyroll` — like `plainroll` but with no die-size restriction, so `d100`,
+  `3d3`, `d7`, `d2`, etc. all work. Rolls the pool, applies `+N`/`-N` modifiers,
+  and gives a total — no MvK/13th Age rules or crit/even/odd callouts. Aliases
+  `a`, `rollany`; also the slash command `/a`.
+- `average` — totals the *average* result of a standard dice pool (d20–d4) plus
+  `+N`/`-N` modifiers, instead of rolling. Each die averages to half its max +
+  0.5 (d4 → 2.5, d20 → 10.5). 13th Age uses this for damage and recovery rolls
+  (never attack or skill checks). Aliases `mean`, `m`; also the slash command
+  `/m`.
 - `escalation` — tracks the 13th Age escalation die (0–6) for the current
   channel. `?escalation`/`/escalation` (text aliases `?esc`/`?e`, plus the `/esc`
   slash command) shows it; `+1`/`next` advances a round, `-1`/`back` steps down,
