@@ -24,8 +24,17 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Help sections are listed alphabetically by default; this one is pinned last.
-LAST_CATEGORY = "Configuration"
+import prefixstore
+
+# Order of ?help sections (by cog name); the uncategorized help command is last.
+SECTION_ORDER = ("Dice Rolling", "Escalation", "Configuration")
+# Extra text appended to a section's heading in ?help.
+HEADING_SUFFIX = {
+    "Escalation": " (13th Age)",
+    "Configuration": " (Server Managers only)",
+}
+# Heading for the help command's own (cog-less) section.
+HELP_SECTION = "Help"
 
 
 class _HelpDestination:  # pylint: disable=too-few-public-methods
@@ -45,52 +54,125 @@ class _HelpDestination:  # pylint: disable=too-few-public-methods
 
 
 class HybridHelpCommand(commands.DefaultHelpCommand):
-    """Default help command that sends output through the context.
+    """Help command that outputs Markdown (headings + bullets), not a code block.
 
-    The built-in help command writes to ``ctx.channel`` directly, which would
-    leave a slash-command interaction unacknowledged. Sending through
-    ``ctx.send`` instead lets the same help command answer both the ``?help``
-    text command and the ``/help`` slash command (see ``Help.help_slash``), and
-    makes the ``/help`` reply ephemeral.
+    The built-in help command writes a fixed-width code block to ``ctx.channel``
+    directly. Instead we render Markdown through ``ctx.send`` (see
+    ``_HelpDestination``), which looks better in Discord and lets the same help
+    command answer both ``?help`` and ``/help`` (the latter ephemerally). The
+    ``paginator`` is created without code-fence prefix/suffix in ``setup`` so the
+    Markdown isn't wrapped in ```` ``` ````.
     """
 
     def get_destination(self):
         return _HelpDestination(self.context)
 
-    async def send_bot_help(self, mapping, /):  # pylint: disable=unused-argument
-        """List sections like the default, but pin the Configuration section last.
+    def _add_bullet(self, command):
+        """Add a ``- **name** \u2014 short help`` bullet for a command."""
+        bullet = f"- **{command.name}**"
+        if command.short_doc:
+            bullet += f" \u2014 {command.short_doc}"
+        self.paginator.add_line(bullet)
 
-        ``DefaultHelpCommand`` orders sections alphabetically; we keep that for
-        everything except the ``LAST_CATEGORY`` section, which sorts to the end.
-        """
+    def _prefix_footer(self):
+        """A footer line naming this server's prefixes plus @-mention and slash."""
         bot = self.context.bot
-        if bot.description:
-            self.paginator.add_line(bot.description, empty=True)
+        store = getattr(bot, "prefix_store", None)
+        guild_id = self.context.guild.id if self.context.guild else None
+        prefixes = store.get(guild_id) if store else list(prefixstore.DEFAULT_PREFIXES)
+        chars = prefixstore.format_prefixes(prefixes)
+        lead = f"{chars} " if chars else ""
+        return f"Command prefixes: {lead}@-me or slash-commands."
 
-        no_category = f"\u200b{self.no_category}:"
-
-        def get_category(command, *, no_category=no_category):
-            cog = command.cog
-            return cog.qualified_name + ":" if cog is not None else no_category
+    async def send_bot_help(self, mapping, /):  # pylint: disable=unused-argument
+        """Render the full command list as Markdown sections."""
+        bot = self.context.bot
+        name = bot.user.display_name if bot.user else "MvK Dice Bot"
+        description = (bot.description or "").strip()
+        title = f"## **{name}**"
+        if description:
+            title += f" \u2014 {description}"
+        self.paginator.add_line(title)
 
         filtered = await self.filter_commands(bot.commands, sort=False)
-        max_size = self.get_max_size(filtered)
 
-        # Alphabetical, except LAST_CATEGORY is forced to the bottom.
-        filtered.sort(
-            key=lambda c: (get_category(c) == f"{LAST_CATEGORY}:", get_category(c))
-        )
+        def category(command):
+            return command.cog.qualified_name if command.cog is not None else None
 
-        for category, cmds in itertools.groupby(filtered, key=get_category):
-            cmds = (
-                sorted(cmds, key=lambda c: c.name) if self.sort_commands else list(cmds)
-            )
-            self.add_indented_commands(cmds, heading=category, max_size=max_size)
+        def order(command):
+            key = category(command)
+            if key is None:
+                return (len(SECTION_ORDER) + 1, "")  # help command's section last
+            if key in SECTION_ORDER:
+                return (SECTION_ORDER.index(key), "")
+            return (len(SECTION_ORDER), key)  # any other cog, alphabetical, before Help
 
-        note = self.get_ending_note()
-        if note:
+        filtered.sort(key=order)
+
+        for key, cmds in itertools.groupby(filtered, key=category):
+            cmds = sorted(cmds, key=lambda c: c.name)
+            if key is None:
+                self.paginator.add_line(f"### {HELP_SECTION}")
+                for command in cmds:
+                    self._add_bullet(command)
+                # Usage bullets describe the help command specifically, so use its
+                # configured name rather than whichever cog-less command sorts first.
+                help_name = self.context.bot.help_command.command_attrs.get(
+                    "name", "help"
+                )
+                self.paginator.add_line(
+                    f"- **{help_name} <command>** \u2014 for more info on a command"
+                )
+                self.paginator.add_line(
+                    f"- **{help_name} <category>** \u2014 for more info on a category."
+                )
+            else:
+                self.paginator.add_line(f"### {key}{HEADING_SUFFIX.get(key, '')}")
+                for command in cmds:
+                    self._add_bullet(command)
+
+        self.paginator.add_line()
+        self.paginator.add_line(self._prefix_footer())
+
+        await self.send_pages()
+
+    async def send_cog_help(self, cog, /):
+        """Render a single category's commands as Markdown."""
+        heading = cog.qualified_name + HEADING_SUFFIX.get(cog.qualified_name, "")
+        self.paginator.add_line(f"## {heading}")
+        if cog.description:
             self.paginator.add_line()
-            self.paginator.add_line(note)
+            self.paginator.add_line(cog.description)
+
+        filtered = await self.filter_commands(cog.get_commands(), sort=True)
+        if filtered:
+            self.paginator.add_line()
+            for command in filtered:
+                self._add_bullet(command)
+
+        await self.send_pages()
+
+    async def send_command_help(self, command, /):
+        """Render one command's full help as Markdown (no code block)."""
+        # Signature without a prefix (the user knows their prefix) and without the
+        # alias list (get_command_signature folds those in as [name|alias...]);
+        # aliases get their own line below instead.
+        usage = command.qualified_name
+        if command.signature:
+            usage += f" {command.signature}"
+        self.paginator.add_line(f"**{usage}**")
+
+        help_text = command.help or command.short_doc
+        if help_text:
+            self.paginator.add_line()
+            for line in help_text.split("\n"):
+                self.paginator.add_line(line)
+
+        if command.aliases:
+            self.paginator.add_line()
+            self.paginator.add_line(
+                "Aliases: " + ", ".join(f"`{alias}`" for alias in command.aliases)
+            )
 
         await self.send_pages()
 
@@ -118,5 +200,8 @@ class Help(commands.Cog):
 
 async def setup(bot):
     """discord.py extension entry point: install the help command and cog."""
-    bot.help_command = HybridHelpCommand()
+    # No code-fence prefix/suffix so the help renders as Markdown, not a block.
+    bot.help_command = HybridHelpCommand(
+        paginator=commands.Paginator(prefix=None, suffix=None)
+    )
     await bot.add_cog(Help(bot))

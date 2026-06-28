@@ -3,8 +3,9 @@ mvkdicebot.ini
 mvkdicebot.sqlite3
 mvkdicebot.sqlite3-journal
 
-## Rulebook PDFs (large, copyrighted) kept locally for reference:
+## Rulebooks kept locally for reference:
 *.pdf
+*.docx
 
 ## Editor/Linux:
 *~

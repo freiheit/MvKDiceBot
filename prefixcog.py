@@ -74,10 +74,7 @@ def describe(prefixes):
 
 
 class Prefixes(commands.Cog, name="Configuration"):
-    """Per-guild command-prefix configuration.
-
-    The cog's display name ("Configuration") is the heading it gets in ``?help``.
-    """
+    """Per-guild command-prefix configuration."""
 
     def __init__(self, bot):
         self.bot = bot
