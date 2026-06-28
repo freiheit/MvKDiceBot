@@ -351,3 +351,35 @@ def anyroll(dicestr: str, prior_rolls=None):
     lines.append(f"**Total: {total}**")
 
     return "\n".join(lines) + "\n", dicerolls
+
+
+def average(dicestr: str, prior_rolls=None):  # pylint: disable=unused-argument
+    """Total the *average* result of a dice pool instead of rolling it.
+
+    Accepts the standard dice (d20-d4, same as plainroll) plus +/- modifiers.
+    Each die averages to half its max + 0.5 (d4 -> 2.5, d20 -> 10.5), so the
+    result is whole or ends in .5. 13th Age uses averages for damage and recovery
+    rolls (never attack or skill checks). Returns ``(text, {})`` -- nothing is
+    rolled, so there's no per-die state to reuse on an edit; ``prior_rolls`` is
+    accepted (and ignored) for a uniform roller signature.
+    """
+
+    logger.debug("Average %s", {dicestr})
+
+    add_amount = parse_math(dicestr)
+    dicecounts = parse_dice(dicestr)
+
+    mean = sum(count * (size + 1) / 2 for size, count in dicecounts.items())
+    total = mean + add_amount
+    # Each die's mean ends in .5, so a pool total is whole or .5; show it tidily.
+    shown = int(total) if total == int(total) else total
+
+    pool = " ".join(
+        f"{count}d{size}" for size, count in dicecounts.items() if count > 0
+    )
+    lines = [f"-# Dice: {pool}"] if pool else []
+    if add_amount != 0:
+        lines.append(f"-# Adjustment: {add_amount}")
+    lines.append(f"**Average: {shown}**")
+
+    return "\n".join(lines) + "\n", {}

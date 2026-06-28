@@ -465,6 +465,32 @@ class TestAnyRoll(unittest.TestCase):
         self.assertNotIn("Esc", text)
 
 
+class TestAverage(unittest.TestCase):
+    """Tests for the average command: per-die mean (size+1)/2, modifiers, total."""
+
+    def test_average_single_die(self):
+        """A single die shows its exact mean (half max + 0.5)."""
+        text, rolls = roller.average("d20")
+        self.assertEqual(rolls, {})
+        self.assertIn("-# Dice: 1d20", text)
+        self.assertIn("**Average: 10.5**", text)
+        self.assertIn("**Average: 2.5**", roller.average("d4")[0])
+
+    def test_average_pool_and_modifier(self):
+        """Pools sum, modifiers apply, whole results drop the .0."""
+        text, _ = roller.average("2d6 +3")  # 7 + 3 = 10
+        self.assertIn("-# Dice: 2d6", text)
+        self.assertIn("-# Adjustment: 3", text)
+        self.assertIn("**Average: 10**", text)
+        # d20 + d6 = 10.5 + 3.5 = 14 (whole)
+        self.assertIn("**Average: 14**", roller.average("d20 d6")[0])
+
+    def test_average_rejects_nonstandard_dice(self):
+        """Like plainroll, only standard d4-d20 dice are accepted."""
+        with self.assertRaises(roller.RollError):
+            roller.average("d7")
+
+
 class TestBotCommands(unittest.TestCase):
     """Test that the bot exposes both prefix and slash (app) commands.
 
@@ -487,7 +513,7 @@ class TestBotCommands(unittest.TestCase):
 
     def test_prefix_commands_registered(self):
         """The primary command names resolve as text/prefix commands."""
-        for name in ("mvkroll", "plainroll", "anyroll", "setprefixes"):
+        for name in ("mvkroll", "plainroll", "anyroll", "average", "setprefixes"):
             with self.subTest(name=name):
                 self.assertIsNotNone(mvkdicebot.bot.get_command(name))
 
@@ -500,6 +526,8 @@ class TestBotCommands(unittest.TestCase):
             "justroll": "plainroll",
             "a": "anyroll",
             "rollany": "anyroll",
+            "mean": "average",
+            "m": "average",
             "esc": "escalation",
             "e": "escalation",
             "next": "nextround",
@@ -518,10 +546,12 @@ class TestBotCommands(unittest.TestCase):
             "mvkroll",
             "plainroll",
             "anyroll",
+            "average",
             "help",
             "r",
             "p",
             "a",
+            "m",
             "escalation",
             "esc",
             "nextround",
