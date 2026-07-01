@@ -59,6 +59,20 @@ class TestRoller(unittest.TestCase):
             "4d12 1d10 2d4": {20: 0, 12: 4, 10: 1, 8: 0, 6: 0, 4: 2},
             " d4 d6 d8 d12 ": {20: 0, 12: 1, 10: 0, 8: 1, 6: 1, 4: 1},
             "1024d20, 500d4": {20: 1024, 12: 0, 10: 0, 8: 0, 6: 0, 4: 500},
+            # The same variations checked in test_parse_math: whatever the
+            # modifiers, the dice pool must come out identical (die-counts are
+            # never eaten by the +/- parsing, and vice versa).
+            "1d20+1d6+2d8": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8 + 7 - 6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8+7-6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8 +7 -6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8 + 7 -6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8 +7 - 6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d4+d8+d6": {20: 1, 12: 0, 10: 0, 8: 1, 6: 1, 4: 1},
+            "1d20+15d6": {20: 1, 12: 0, 10: 0, 8: 0, 6: 15, 4: 0},
+            "1d20+3d8": {20: 1, 12: 0, 10: 0, 8: 3, 6: 0, 4: 0},
+            "1d20+1d6+3": {20: 1, 12: 0, 10: 0, 8: 0, 6: 1, 4: 0},
+            "10d6 +5": {20: 0, 12: 0, 10: 0, 8: 0, 6: 10, 4: 0},
         }
         for dstring, dspec in strings.items():
             with self.subTest(dstring=dstring):
@@ -89,10 +103,35 @@ class TestRoller(unittest.TestCase):
             "d20 + 7": 7,
             "+5 +2": 7,
             "+5 - 2": 3,
+            "1d20+1d6+2d8": 0,
+            "1d20+1d6+2d8 + 7 - 6": 1,
+            "1d20+1d6+2d8+7-6": 1,
+            "1d20+1d6+2d8 +7 -6": 1,
+            "1d20+1d6+2d8 + 7 -6": 1,
+            "1d20+1d6+2d8 +7 - 6": 1,
+            "1d20+1d4+d8+d6": 0,  # bare +dN counts are not modifiers
+            "1d20+15d6": 0,  # multi-digit die-count, not a +15 modifier
+            "1d20+3d8": 0,
+            "1d20+1d6+3": 3,  # a real modifier survives alongside dice
+            "d100 +17": 17,  # any-size die still gets its modifier
+            "10d6 +5": 5,
         }
         for dstring, expected in cases.items():
             with self.subTest(dstring=dstring):
                 self.assertEqual(roller.parse_math(dstring), expected)
+
+    def test_dice_counts_are_not_modifiers(self):
+        """A pool like 1d20+1d6+2d8 carries no adjustment (die-counts aren't +N)."""
+        # mvkroll reads the action modifier through the same parse_math.
+        self.assertEqual(roller._parse_modifiers("d20 1d6 2d8").action_mod, 0)
+        self.assertEqual(roller._parse_modifiers("d20+1d6+2d8").action_mod, 0)
+
+        # plainroll: no phantom Adjustment line, total is just the dice sum.
+        text, _rolls = roller.plainroll(
+            "1d20+1d6+2d8", prior_rolls={20: [10], 6: [3], 8: [1, 1]}
+        )
+        self.assertNotIn("Adjustment", text)
+        self.assertIn("**Total: 15**", text)
 
     def test_plainroll_escalation_shown(self):
         """A single d20 with escalation > 0 shows the Esc line and escalated total."""
@@ -427,6 +466,9 @@ class TestAnyRoll(unittest.TestCase):
         self.assertEqual(roller.parse_any_dice("d7 d2 2d3"), {7: 1, 3: 2, 2: 1})
         self.assertEqual(roller.parse_any_dice("d20 2d6"), {20: 1, 6: 2})
         self.assertEqual(roller.parse_any_dice(""), {})
+        # A +/- modifier never eats a die-count, joined or spaced (see parse_math).
+        self.assertEqual(roller.parse_any_dice("d100 +17"), {100: 1})
+        self.assertEqual(roller.parse_any_dice("d100+2d3"), {100: 1, 3: 2})
 
     def test_parse_any_dice_bad_size(self):
         """A die below 1 (e.g. d0) is rejected."""
@@ -471,6 +513,12 @@ class TestAnyRoll(unittest.TestCase):
         self.assertNotIn("Adjustment", text)
         self.assertNotIn("Esc", text)
 
+    def test_dice_counts_are_not_modifiers(self):
+        """A multi-die any-pool carries no adjustment (die-counts aren't +N)."""
+        text, _ = roller.anyroll("d100+2d3", prior_rolls={100: [42], 3: [1, 2]})
+        self.assertNotIn("Adjustment", text)
+        self.assertIn("**Total: 45**", text)
+
 
 class TestAverage(unittest.TestCase):
     """Tests for the average command: per-die mean (size+1)/2, modifiers, total."""
@@ -491,6 +539,12 @@ class TestAverage(unittest.TestCase):
         self.assertIn("**Average: 10**", text)
         # d20 + d6 = 10.5 + 3.5 = 14 (whole)
         self.assertIn("**Average: 14**", roller.average("d20 d6")[0])
+
+    def test_dice_counts_are_not_modifiers(self):
+        """Joined dice carry no adjustment (die-counts aren't +N): 2d6+2d8 = 16."""
+        text, _ = roller.average("2d6+2d8")
+        self.assertNotIn("Adjustment", text)
+        self.assertIn("**Average: 16**", text)
 
     def test_average_rejects_nonstandard_dice(self):
         """Non-standard dice are rejected with a message that names the size."""
