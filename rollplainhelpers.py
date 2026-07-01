@@ -21,7 +21,7 @@
 
 import re
 
-from rollcommon import RollError
+from rollcommon import _DICE_RE, RollError
 
 
 def print_d20_special(dicerolls):
@@ -63,13 +63,19 @@ def parse_math(dicestr: str):
 
     Whitespace between the sign and the number is allowed, so '+7', '+ 7', and
     '+  7' are all equivalent.
+
+    Dice terms are blanked out first (via the same regex ``parse_dice`` uses) so a
+    die-count like the ``2`` in ``+2d8`` is never mistaken for a ``+2`` modifier;
+    ``1d20+1d6+2d8`` is the pool ``1d20 1d6 2d8`` with no adjustment.
     """
+
+    without_dice = _DICE_RE.sub(" ", dicestr)
 
     pattern_math = re.compile(r"([+-])\s*([0-9]+)")
 
     amount = 0
 
-    for sign, num in re.findall(pattern_math, dicestr):
+    for sign, num in re.findall(pattern_math, without_dice):
         amount += int(sign + num)
 
     return amount
