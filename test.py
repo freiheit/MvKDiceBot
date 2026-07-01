@@ -59,6 +59,8 @@ class TestRoller(unittest.TestCase):
             "4d12 1d10 2d4": {20: 0, 12: 4, 10: 1, 8: 0, 6: 0, 4: 2},
             " d4 d6 d8 d12 ": {20: 0, 12: 1, 10: 0, 8: 1, 6: 1, 4: 1},
             "1024d20, 500d4": {20: 1024, 12: 0, 10: 0, 8: 0, 6: 0, 4: 500},
+            "1d20+1d6+2d8": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
+            "1d20+1d6+2d8 + 7 -6": {20: 1, 12: 0, 10: 0, 8: 2, 6: 1, 4: 0},
         }
         for dstring, dspec in strings.items():
             with self.subTest(dstring=dstring):
@@ -89,6 +91,12 @@ class TestRoller(unittest.TestCase):
             "d20 + 7": 7,
             "+5 +2": 7,
             "+5 - 2": 3,
+            "1d20+1d6+2d8": 0,
+            "1d20+1d6+2d8 + 7 - 6": 1,
+            "1d20+1d6+2d8+7-6": 1,
+            "1d20+1d6+2d8 +7 -6": 1,
+            "1d20+1d6+2d8 + 7 -6": 1,
+            "1d20+1d6+2d8 +7 - 6": 1,
         }
         for dstring, expected in cases.items():
             with self.subTest(dstring=dstring):
