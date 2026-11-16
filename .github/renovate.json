@@ -10,7 +10,9 @@
     "/^release\\/.*/"
   ],
   "configMigration": true,
-  "dependencyDashboardAutoclose": true,
-  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "dependencyDashboard": {
+    "autoclose": true,
+    "osvVulnerabilitySummary": "all"
+  },
   "osvVulnerabilityAlerts": true
 }
